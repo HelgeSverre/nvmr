@@ -1,0 +1,27 @@
+[package]
+name = "nvm-core"
+version = "0.1.0"
+edition = "2021"
+default-run = "nvm-core"
+
+[[bin]]
+name = "nvm-core"
+path = "src/main.rs"
+
+[[bin]]
+name = "nvm-fetch"
+path = "src/bin/nvm-fetch.rs"
+
+[dependencies]
+ureq = { version = "3", default-features = false, features = ["rustls", "platform-verifier", "gzip"] }
+sha2 = "0.10"
+flate2 = "1"
+tar = "0.4"
+liblzma = { version = "0.4", features = ["static"] }
+
+[profile.release]
+opt-level = 3
+lto = "fat"
+codegen-units = 1
+panic = "abort"
+strip = true
