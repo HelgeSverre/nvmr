@@ -53,7 +53,8 @@ and upstream nvm v0.40.8 at `/opt/nvm-upstream`.
 The gate (`scripts/all.sh`) runs the same command sequences through upstream nvm and `nvm-core`, with real downloads, and
 diffs stdout, stderr, exit codes and the resulting shell environment:
 
-- `scenario*.sh`: 373 commands (resolution, install/uninstall, aliases, `.nvmrc`, `lts/*`, npm prefix guard, system node,
+- `cargo fmt --check`, `cargo clippy -- -D warnings` and the unit tests
+- `scenario*.sh`: 377 commands (resolution, install/uninstall, aliases, `.nvmrc`, `lts/*`, npm prefix guard, system node,
   offline and mirror errors, locks, hooks, global package reinstall, source builds against a fake mirror, io.js and
   old-layout installs, ...)
 - `sigint-test.sh`: Ctrl-C mid-download (partial tarball kept and resumed), mid-extraction (no half-extracted tree), and

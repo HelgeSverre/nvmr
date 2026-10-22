@@ -4,7 +4,9 @@ cd /src || exit 1
 fail=0
 step() { printf '\n##### %s\n' "$1"; }
 chk() { if "$@"; then echo "PASS"; else echo "FAIL: $*"; fail=1; fi; }
-step "cargo test";  cargo test --release 2>&1 | tail -4; [ "${PIPESTATUS[0]}" = 0 ] || fail=1
+step "rustfmt";     cargo fmt --check >/dev/null 2>&1 && echo PASS || { echo "FAIL: cargo fmt --check"; fail=1; }
+step "clippy";      cargo clippy --release --all-targets -- -D warnings 2>&1 | tail -3; [ "${PIPESTATUS[0]}" = 0 ] || fail=1
+step "cargo test";  cargo test --release 2>&1 | grep "test result"; [ "${PIPESTATUS[0]}" = 0 ] || fail=1
 step "cargo build"; cargo build --release 2>&1 | tail -1; [ "${PIPESTATUS[0]}" = 0 ] || fail=1
 for s in scenario scenario2 scenario3 scenario4 scenario5 scenario6 scenario7 scenario8 scenario9 scenario10; do
   step "$s vs upstream"; out="$(SC=$s.sh DIFFMAX=60 /src/scripts/compare.sh 2>&1)"; echo "$out" | head -70; echo "$out" | grep -q '^IDENTICAL' || fail=1

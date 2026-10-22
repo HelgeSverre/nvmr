@@ -743,7 +743,7 @@ Revisit trigger for this decision: a MUST in §13.2 that cannot be met in Rust a
 
 ## 15. Implementation status (2026-10-22)
 
-Implemented in Rust (`src/`), verified on Linux (arm64) inside Docker against upstream nvm v0.40.8 with `scripts/verify.sh` (clean build, unit tests, 373 compared commands (10 scenarios), colour, bash, zsh, fish, portability, Ctrl-C):
+Implemented in Rust (`src/`), verified on Linux (arm64) inside Docker against upstream nvm v0.40.8 with `scripts/verify.sh` (clean build, unit tests, 377 compared commands (10 scenarios), colour, bash, zsh, fish, portability, Ctrl-C):
 resolution (§3–4), PATH/MANPATH/NODE_PATH editing and the prefix guard (§5), every command in §6 including source builds (`install -s`, the source fallback, `-j`, `NVM_MAKE_JOBS`, extra `configure` arguments; checked against a fake source-only mirror), `.nvmrc`, aliases, LTS maintenance, offline installs, install locks, third-party hook, `default-packages`, `--latest-npm`, `reinstall-packages`, colours and `set-colors`, `debug`, `unload`, system node, existing io.js installs (`versions/io.js`) and pre-0.12 installs in the old `$NVM_DIR/vX` layout (listed, resolved, used, run and uninstalled), lazy mode, `nvm-exec`, installer, fish integration, static musl bundle.
 
 Interrupts: Ctrl-C during a download keeps the partial tarball (the next install resumes it with `Range:`); during extraction it removes the half-extracted `files/` tree and keeps the verified tarball; in both cases `nvm install` returns 130 and releases its install lock. Upstream leaves the lock behind.
