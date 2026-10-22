@@ -1,4 +1,5 @@
 mod colors;
+mod npm;
 mod pathedit;
 mod remote;
 mod store;
@@ -136,7 +137,11 @@ fn run(cx: &mut Ctx, args: &[String]) -> i32 {
             let a = rest.first().map(String::as_str).unwrap_or("");
             if !colors::valid_codes(&a.chars().take(5).collect::<String>()) || a.chars().count() < 5 {
                 eprint!("{HELP}");
-                eprintln!("\x1b[1;37mPlease pass in five \x1b[1;31mvalid color codes\x1b[1;37m. Choose from: rRgGbBcCyYmMkKeW\x1b[0m");
+                if env::var("NVM_NO_COLORS").as_deref() == Ok("--no-colors") || args.iter().any(|x| x == "--no-colors") {
+                    eprintln!("\nPlease pass in five valid color codes. Choose from: rRgGbBcCyYmMkKeW");
+                } else {
+                    eprintln!("\x1b[1;37mPlease pass in five \x1b[1;31mvalid color codes\x1b[1;37m. Choose from: rRgGbBcCyYmMkKeW\x1b[0m");
+                }
                 return 0;
             }
             let c5: String = a.chars().take(5).collect();
@@ -154,6 +159,48 @@ fn run(cx: &mut Ctx, args: &[String]) -> i32 {
                 cx.ev.unset(v);
             }
             0
+        }
+        "install-latest-npm" => {
+            if !rest.is_empty() {
+                eprintln!("Usage: nvm install-latest-npm\n  {HELP_HINT}");
+                return 127;
+            }
+            let cur = cx.st.ls_current(&env::var("PATH").unwrap_or_default());
+            let nv = if cur == "system" { system_node(cx).map(|x| x.1).unwrap_or_default() } else { cur.clone() };
+            if cur == "none" {
+                println!("Attempting to upgrade to the latest working version of npm...");
+                println!("Detected node version none, npm version v");
+                eprintln!("Unable to obtain node version.");
+                return 1;
+            }
+            npm::install_latest(&nv, None)
+        }
+        "reinstall-packages" | "copy-packages" => {
+            if rest.len() != 1 {
+                eprintln!("Usage: nvm {} <version>\n  {HELP_HINT}", args[0]);
+                return 127;
+            }
+            let cur = cx.st.ls_current(&env::var("PATH").unwrap_or_default());
+            if rest[0] == cur || cx.st.version(&rest[0]).as_deref() == Ok(cur.as_str()) {
+                eprintln!("Can not reinstall packages from the current version of node.");
+                return 2;
+            }
+            match cx.st.version(&rest[0]) {
+                Ok(v) if cx.st.is_installed(&v) => {
+                    npm::reinstall(&v, &cx.st.version_dir(&v).join("bin"), None);
+                    0
+                }
+                _ if rest[0] == "system" => {
+                    eprintln!("No system version of node or io.js detected.");
+                    3
+                }
+                _ => {
+                    // Upstream quirk: resolution failure falls through with the literal "N/A".
+                    not_installed(cx, "N/A", false);
+                    println!("Reinstalling global packages from N/A...\nNo installed global packages found...\nLinking global packages from N/A...\nNo linked global packages found...");
+                    0
+                }
+            }
         }
         "__auto" => cmd_auto(cx, rest),
         other => {
@@ -775,8 +822,27 @@ fn cmd_install(cx: &mut Ctx, rest: &[String]) -> i32 {
     let mut version: Option<String> = None;
     let mut bin_only = false;
     let mut src_only = false;
+    let mut latest_npm = false;
+    let mut reinstall_from: Option<String> = None;
     for a in rest {
         match a.as_str() {
+            "--reinstall-packages-from" | "--copy-packages-from" => {
+                eprintln!("If {a} is provided, it must point to an installed version of node using `=`.");
+                return 6;
+            }
+            x if x.starts_with("--reinstall-packages-from=") || x.starts_with("--copy-packages-from=") => {
+                if reinstall_from.is_some() {
+                    eprintln!("--reinstall-packages-from may not be provided more than once{}", if x.starts_with("--copy") { ", or combined with `--copy-packages-from`" } else { "" });
+                    return 6;
+                }
+                let val = x.split_once('=').unwrap().1.to_string();
+                if val.is_empty() {
+                    eprintln!("If {} is provided, it must point to an installed version of node.", x.split_once('=').unwrap().0);
+                    return 6;
+                }
+                reinstall_from = Some(val);
+            }
+            "--latest-npm" => latest_npm = true,
             "--lts" if version.is_none() => flags_lts = Some("*".into()),
             "--default" => set_default = true,
             "--save" | "-w" => save = true,
@@ -785,7 +851,6 @@ fn cmd_install(cx: &mut Ctx, rest: &[String]) -> i32 {
             "--offline" => passthru.push(a.clone()),
             "-b" => bin_only = true,
             "-s" => src_only = true,
-            "--latest-npm" => {}
             x if x.starts_with("--lts=") => flags_lts = Some(x[6..].to_string()),
             x if x.starts_with("--alias=") => alias = Some(x[8..].to_string()),
             x if x.starts_with("---") => {
@@ -875,9 +940,24 @@ fn cmd_install(cx: &mut Ctx, rest: &[String]) -> i32 {
     };
     let typed = version.clone().unwrap_or_else(|| if flags_lts.as_deref() == Some("*") { "lts/*".into() } else { format!("lts/{}", flags_lts.clone().unwrap_or_default()) });
 
+    if let Some(p) = &reinstall_from {
+        match cx.st.version(p) {
+            Ok(v) if cx.st.is_installed(&v) => {
+                if v == ver && !cx.st.is_installed(&ver) {
+                    eprintln!("You can't reinstall global packages from the same version of node you're installing.");
+                    return 4;
+                }
+            }
+            _ => {
+                eprintln!("If --reinstall-packages-from is provided, it must point to an installed version of node.");
+                return 5;
+            }
+        }
+    }
     let valid = |cx: &Ctx| cx.st.is_installed(&ver);
     let mut rc = 0;
-    if valid(cx) {
+    let was_installed = valid(cx);
+    if was_installed {
         eprintln!("{ver} is already installed.");
     } else {
         println!("Downloading and installing node {ver}...");
@@ -900,68 +980,59 @@ fn cmd_install(cx: &mut Ctx, rest: &[String]) -> i32 {
             return 1;
         }
     }
+    let reinstall_src = reinstall_from.as_ref().and_then(|p| cx.st.version(p).ok());
     let r = cmd_use(cx, &[ver.clone()]);
     if r != 0 {
         rc = r;
     }
-    // default alias
-    if cx.st.read_alias("default").is_none() {
-        let _ = fs::create_dir_all(cx.st.dir.join("alias"));
-        let target = typed.clone();
-        if fs::write(cx.st.alias_path("default"), format!("{target}\n")).is_ok() {
-            print!("Creating default alias: ");
-            print_alias(cx, "default", &target);
+    let bindir = cx.st.version_dir(&ver).join("bin");
+    let ensure_default = |cx: &mut Ctx| {
+        if cx.st.read_alias("default").is_none() {
+            let _ = fs::create_dir_all(cx.st.dir.join("alias"));
+            if fs::write(cx.st.alias_path("default"), format!("{typed}\n")).is_ok() {
+                print!("Creating default alias: ");
+                print_alias(cx, "default", &typed);
+            }
         }
+    };
+    if !was_installed {
+        ensure_default(cx);
+    }
+    if latest_npm {
+        let c = npm::install_latest(&ver, Some(&bindir));
+        if c != 0 {
+            rc = c;
+        }
+    }
+    if !skip_pkgs {
+        let c = npm::install_default_packages(&cx.st.dir, &bindir);
+        if c != 0 {
+            rc = c;
+        }
+    }
+    if let Some(src) = reinstall_src {
+        if src == ver {
+            eprintln!("Can not reinstall packages from the current version of node.");
+            rc = 2;
+        } else {
+            npm::reinstall(&src, &cx.st.version_dir(&src).join("bin"), Some(&bindir));
+        }
+    }
+    if was_installed {
+        ensure_default(cx);
     }
     if set_default {
         let _ = fs::write(cx.st.alias_path("default"), format!("{typed}\n"));
         print_alias(cx, "default", &typed);
     }
-    if let Some(a) = alias {
-        let _ = cmd_alias(cx, &[a, typed.clone()]);
-    }
     if save {
         let _ = fs::write(env::current_dir().unwrap_or_default().join(".nvmrc"), format!("{ver}\n"));
         println!("Wrote version number ({ver}) to .nvmrc");
     }
-    if !skip_pkgs {
-        if let Some(c) = default_packages(cx, &ver) {
-            if c != 0 {
-                rc = c;
-            }
-        }
+    if let Some(a) = alias {
+        let _ = cmd_alias(cx, &[a, typed.clone()]);
     }
     rc
-}
-
-fn default_packages(cx: &Ctx, ver: &str) -> Option<i32> {
-    let f = cx.st.dir.join("default-packages");
-    let txt = fs::read_to_string(&f).ok()?;
-    let mut pkgs = vec![];
-    for l in txt.lines() {
-        let l = l.split('#').next().unwrap_or("").trim();
-        if l.is_empty() {
-            continue;
-        }
-        if l.split_whitespace().count() > 1 {
-            eprintln!("Only one package per line is allowed in `{}`. Please remove any lines with multiple space-separated values.", f.display());
-            return Some(1);
-        }
-        pkgs.push(l.to_string());
-    }
-    if pkgs.is_empty() {
-        return None;
-    }
-    println!("Installing default global packages from ${{NVM_DIR}}/default-packages...");
-    println!("npm install -g --quiet {}", pkgs.join(" "));
-    let bin = cx.st.version_dir(ver).join("bin");
-    let path = format!("{}:{}", bin.display(), env::var("PATH").unwrap_or_default());
-    let ok = Command::new(bin.join("npm")).args(["install", "-g", "--quiet"]).args(&pkgs).env("PATH", path).status().map(|s| s.success()).unwrap_or(false);
-    if !ok {
-        eprintln!("Failed installing default packages. Please check if your default-packages file or a package in it has problems!");
-        return Some(1);
-    }
-    Some(0)
 }
 
 fn cmd_uninstall(cx: &mut Ctx, rest: &[String]) -> i32 {
