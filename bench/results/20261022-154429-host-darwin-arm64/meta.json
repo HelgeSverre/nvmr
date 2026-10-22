@@ -1,0 +1,2142 @@
+{
+  "started": "2026-10-22T15:44:58+0200",
+  "where": "host Darwin arm64",
+  "git": "c871fb2-dirty",
+  "pins": {
+    "DEBIAN_IMAGE": "debian:bookworm-slim@sha256:7ff6ba31527b9e336162fa061746c366c4b2032f4d2cff2078bea43f78efe3f8",
+    "DEBIAN_SNAPSHOT": "20261020T000000Z",
+    "NVM_VERSION": "v0.40.8",
+    "NVM_COMMIT": "8db529c5350353f165e1e7f6abb6eb6909f7fd37",
+    "FNM_VERSION": "v1.39.0",
+    "FNM_SHA256_linux_arm64": "4eaff58b2c5bf30d0934027572dd0b5bbb60d2a1af309230b53662d4b1d45599",
+    "FNM_SHA256_linux_x64": "7807664f39d39fc518da1c35ba0181e4b3267603c4b1dedeb4b5fc6ae440a224",
+    "FNM_SHA256_darwin_arm64": "f046483e85c53b3278efe49a3620c8680f22efa58a8dabfd03eafc6b59b31a25",
+    "HYPERFINE_VERSION": "v1.20.0",
+    "HYPERFINE_SHA256_linux_arm64": "90875cb1db7a1d797c311174d061728361e58fc70e3b62262a00635ac3b1997c",
+    "HYPERFINE_SHA256_linux_x64": "63ad53934062118f5b0be11785e0bb1603d4b91667d1921f2fd8df9a8712040a",
+    "NODE_A": "v22.22.3",
+    "NODE_B": "v20.20.2",
+    "NODE_A_SHA256_linux_arm64": "1c4a9933a5e45bc88f54f70b5f91232c127ec49f1a5989d23fb85824c7adf9b7",
+    "NODE_A_SHA256_linux_x64": "2e5d13569282d016861fae7c8f935e741693c269101a5bebcf761a5376d1f99f",
+    "NODE_A_SHA256_darwin_arm64": "753c1629e168cc788ccc46ab61e0b35549fce08c07f82fcd3bb0d41f7fb01e7b",
+    "NODE_B_SHA256_linux_arm64": "73093db209e4e9e09dd7d15a47aeaab1b74833830df03efa5f942a1122c5fa71",
+    "NODE_B_SHA256_linux_x64": "df770b2a6f130ed8627c9782c988fda9669fa23898329a61a871e32f965e007d",
+    "NODE_B_SHA256_darwin_arm64": "6375a1d4421bc04ab284ba89459df788a78c49c89e83c463d0eede47e2efc07b"
+  },
+  "seed": 20261022,
+  "rounds": 3,
+  "quick": false,
+  "filter": "",
+  "platform": "macOS-15.6-arm64-arm-64bit-Mach-O",
+  "uname": "Darwin Helges-MacBook-Pro.local 24.6.0 Darwin Kernel Version 24.6.0: Mon Jul 14 11:30:30 PDT 2025; root:xnu-11417.140.69~1/RELEASE_ARM64_T6020 arm64",
+  "cpu": "Apple M2 Max",
+  "ncpu": 12,
+  "cgroup": {},
+  "versions": {
+    "hyperfine": "hyperfine 1.20.0",
+    "bash": "GNU bash, version 3.2.57(1)-release (arm64-apple-darwin24)",
+    "zsh": "zsh 5.9 (arm64-apple-darwin24.0)",
+    "fnm": "fnm 1.39.0",
+    "nvm-fast": "0.40.8",
+    "python": "3.14.7"
+  },
+  "load_before": [
+    20.76,
+    18.26,
+    21.63
+  ],
+  "ncpu_usable": 12,
+  "benchmarks": [
+    {
+      "id": "startup/bash/bare",
+      "group": "startup",
+      "tool": "bare",
+      "cmd": [
+        "/bin/bash",
+        "--noprofile",
+        "--rcfile",
+        "/Users/helge/code/nvm-fast/bench/.sandbox/host/root/rc/bash/bare/bashrc",
+        "-i",
+        "-c",
+        "exit"
+      ],
+      "ops": 0,
+      "baseline": "",
+      "check": "",
+      "check_cmd": [
+        "/bin/bash",
+        "--noprofile",
+        "--rcfile",
+        "/Users/helge/code/nvm-fast/bench/.sandbox/host/root/rc/bash/bare/bashrc",
+        "-i",
+        "-c",
+        "node -v 2>/dev/null; true"
+      ],
+      "prepare": "",
+      "slow": false
+    },
+    {
+      "id": "startup/bash/nvm",
+      "group": "startup",
+      "tool": "nvm",
+      "cmd": [
+        "/bin/bash",
+        "--noprofile",
+        "--rcfile",
+        "/Users/helge/code/nvm-fast/bench/.sandbox/host/root/rc/bash/nvm/bashrc",
+        "-i",
+        "-c",
+        "exit"
+      ],
+      "ops": 0,
+      "baseline": "startup/bash/bare",
+      "check": "v22.22.3",
+      "check_cmd": [
+        "/bin/bash",
+        "--noprofile",
+        "--rcfile",
+        "/Users/helge/code/nvm-fast/bench/.sandbox/host/root/rc/bash/nvm/bashrc",
+        "-i",
+        "-c",
+        "node -v 2>/dev/null; true"
+      ],
+      "prepare": "",
+      "slow": true
+    },
+    {
+      "id": "startup/bash/nvm-nouse",
+      "group": "startup",
+      "tool": "nvm",
+      "cmd": [
+        "/bin/bash",
+        "--noprofile",
+        "--rcfile",
+        "/Users/helge/code/nvm-fast/bench/.sandbox/host/root/rc/bash/nvm-nouse/bashrc",
+        "-i",
+        "-c",
+        "exit"
+      ],
+      "ops": 0,
+      "baseline": "startup/bash/bare",
+      "check": "",
+      "check_cmd": [
+        "/bin/bash",
+        "--noprofile",
+        "--rcfile",
+        "/Users/helge/code/nvm-fast/bench/.sandbox/host/root/rc/bash/nvm-nouse/bashrc",
+        "-i",
+        "-c",
+        "node -v 2>/dev/null; true"
+      ],
+      "prepare": "",
+      "slow": false
+    },
+    {
+      "id": "startup/bash/nvm-cd",
+      "group": "startup",
+      "tool": "nvm",
+      "cmd": [
+        "/bin/bash",
+        "--noprofile",
+        "--rcfile",
+        "/Users/helge/code/nvm-fast/bench/.sandbox/host/root/rc/bash/nvm-cd/bashrc",
+        "-i",
+        "-c",
+        "exit"
+      ],
+      "ops": 0,
+      "baseline": "startup/bash/bare",
+      "check": "v22.22.3",
+      "check_cmd": [
+        "/bin/bash",
+        "--noprofile",
+        "--rcfile",
+        "/Users/helge/code/nvm-fast/bench/.sandbox/host/root/rc/bash/nvm-cd/bashrc",
+        "-i",
+        "-c",
+        "node -v 2>/dev/null; true"
+      ],
+      "prepare": "",
+      "slow": true
+    },
+    {
+      "id": "startup/bash/fast",
+      "group": "startup",
+      "tool": "fast",
+      "cmd": [
+        "/bin/bash",
+        "--noprofile",
+        "--rcfile",
+        "/Users/helge/code/nvm-fast/bench/.sandbox/host/root/rc/bash/fast/bashrc",
+        "-i",
+        "-c",
+        "exit"
+      ],
+      "ops": 0,
+      "baseline": "startup/bash/bare",
+      "check": "v22.22.3",
+      "check_cmd": [
+        "/bin/bash",
+        "--noprofile",
+        "--rcfile",
+        "/Users/helge/code/nvm-fast/bench/.sandbox/host/root/rc/bash/fast/bashrc",
+        "-i",
+        "-c",
+        "node -v 2>/dev/null; true"
+      ],
+      "prepare": "",
+      "slow": false
+    },
+    {
+      "id": "startup/bash/fast-nouse",
+      "group": "startup",
+      "tool": "fast",
+      "cmd": [
+        "/bin/bash",
+        "--noprofile",
+        "--rcfile",
+        "/Users/helge/code/nvm-fast/bench/.sandbox/host/root/rc/bash/fast-nouse/bashrc",
+        "-i",
+        "-c",
+        "exit"
+      ],
+      "ops": 0,
+      "baseline": "startup/bash/bare",
+      "check": "",
+      "check_cmd": [
+        "/bin/bash",
+        "--noprofile",
+        "--rcfile",
+        "/Users/helge/code/nvm-fast/bench/.sandbox/host/root/rc/bash/fast-nouse/bashrc",
+        "-i",
+        "-c",
+        "node -v 2>/dev/null; true"
+      ],
+      "prepare": "",
+      "slow": false
+    },
+    {
+      "id": "startup/bash/fast-cd",
+      "group": "startup",
+      "tool": "fast",
+      "cmd": [
+        "/bin/bash",
+        "--noprofile",
+        "--rcfile",
+        "/Users/helge/code/nvm-fast/bench/.sandbox/host/root/rc/bash/fast-cd/bashrc",
+        "-i",
+        "-c",
+        "exit"
+      ],
+      "ops": 0,
+      "baseline": "startup/bash/bare",
+      "check": "v22.22.3",
+      "check_cmd": [
+        "/bin/bash",
+        "--noprofile",
+        "--rcfile",
+        "/Users/helge/code/nvm-fast/bench/.sandbox/host/root/rc/bash/fast-cd/bashrc",
+        "-i",
+        "-c",
+        "node -v 2>/dev/null; true"
+      ],
+      "prepare": "",
+      "slow": false
+    },
+    {
+      "id": "startup/bash/fast-autocd",
+      "group": "startup",
+      "tool": "fast",
+      "cmd": [
+        "/bin/bash",
+        "--noprofile",
+        "--rcfile",
+        "/Users/helge/code/nvm-fast/bench/.sandbox/host/root/rc/bash/fast-autocd/bashrc",
+        "-i",
+        "-c",
+        "exit"
+      ],
+      "ops": 0,
+      "baseline": "startup/bash/bare",
+      "check": "v22.22.3",
+      "check_cmd": [
+        "/bin/bash",
+        "--noprofile",
+        "--rcfile",
+        "/Users/helge/code/nvm-fast/bench/.sandbox/host/root/rc/bash/fast-autocd/bashrc",
+        "-i",
+        "-c",
+        "node -v 2>/dev/null; true"
+      ],
+      "prepare": "",
+      "slow": false
+    },
+    {
+      "id": "startup/bash/fnm",
+      "group": "startup",
+      "tool": "fnm",
+      "cmd": [
+        "/bin/bash",
+        "--noprofile",
+        "--rcfile",
+        "/Users/helge/code/nvm-fast/bench/.sandbox/host/root/rc/bash/fnm/bashrc",
+        "-i",
+        "-c",
+        "exit"
+      ],
+      "ops": 0,
+      "baseline": "startup/bash/bare",
+      "check": "v22.22.3",
+      "check_cmd": [
+        "/bin/bash",
+        "--noprofile",
+        "--rcfile",
+        "/Users/helge/code/nvm-fast/bench/.sandbox/host/root/rc/bash/fnm/bashrc",
+        "-i",
+        "-c",
+        "node -v 2>/dev/null; true"
+      ],
+      "prepare": "",
+      "slow": false
+    },
+    {
+      "id": "startup/zsh/bare",
+      "group": "startup",
+      "tool": "bare",
+      "cmd": [
+        "env",
+        "ZDOTDIR=/Users/helge/code/nvm-fast/bench/.sandbox/host/root/rc/zsh/bare",
+        "/bin/zsh",
+        "-i",
+        "-c",
+        "exit"
+      ],
+      "ops": 0,
+      "baseline": "",
+      "check": "",
+      "check_cmd": [
+        "env",
+        "ZDOTDIR=/Users/helge/code/nvm-fast/bench/.sandbox/host/root/rc/zsh/bare",
+        "/bin/zsh",
+        "-i",
+        "-c",
+        "node -v 2>/dev/null; true"
+      ],
+      "prepare": "",
+      "slow": false
+    },
+    {
+      "id": "startup/zsh/nvm",
+      "group": "startup",
+      "tool": "nvm",
+      "cmd": [
+        "env",
+        "ZDOTDIR=/Users/helge/code/nvm-fast/bench/.sandbox/host/root/rc/zsh/nvm",
+        "/bin/zsh",
+        "-i",
+        "-c",
+        "exit"
+      ],
+      "ops": 0,
+      "baseline": "startup/zsh/bare",
+      "check": "v22.22.3",
+      "check_cmd": [
+        "env",
+        "ZDOTDIR=/Users/helge/code/nvm-fast/bench/.sandbox/host/root/rc/zsh/nvm",
+        "/bin/zsh",
+        "-i",
+        "-c",
+        "node -v 2>/dev/null; true"
+      ],
+      "prepare": "",
+      "slow": true
+    },
+    {
+      "id": "startup/zsh/nvm-nouse",
+      "group": "startup",
+      "tool": "nvm",
+      "cmd": [
+        "env",
+        "ZDOTDIR=/Users/helge/code/nvm-fast/bench/.sandbox/host/root/rc/zsh/nvm-nouse",
+        "/bin/zsh",
+        "-i",
+        "-c",
+        "exit"
+      ],
+      "ops": 0,
+      "baseline": "startup/zsh/bare",
+      "check": "",
+      "check_cmd": [
+        "env",
+        "ZDOTDIR=/Users/helge/code/nvm-fast/bench/.sandbox/host/root/rc/zsh/nvm-nouse",
+        "/bin/zsh",
+        "-i",
+        "-c",
+        "node -v 2>/dev/null; true"
+      ],
+      "prepare": "",
+      "slow": false
+    },
+    {
+      "id": "startup/zsh/nvm-cd",
+      "group": "startup",
+      "tool": "nvm",
+      "cmd": [
+        "env",
+        "ZDOTDIR=/Users/helge/code/nvm-fast/bench/.sandbox/host/root/rc/zsh/nvm-cd",
+        "/bin/zsh",
+        "-i",
+        "-c",
+        "exit"
+      ],
+      "ops": 0,
+      "baseline": "startup/zsh/bare",
+      "check": "v22.22.3",
+      "check_cmd": [
+        "env",
+        "ZDOTDIR=/Users/helge/code/nvm-fast/bench/.sandbox/host/root/rc/zsh/nvm-cd",
+        "/bin/zsh",
+        "-i",
+        "-c",
+        "node -v 2>/dev/null; true"
+      ],
+      "prepare": "",
+      "slow": true
+    },
+    {
+      "id": "startup/zsh/fast",
+      "group": "startup",
+      "tool": "fast",
+      "cmd": [
+        "env",
+        "ZDOTDIR=/Users/helge/code/nvm-fast/bench/.sandbox/host/root/rc/zsh/fast",
+        "/bin/zsh",
+        "-i",
+        "-c",
+        "exit"
+      ],
+      "ops": 0,
+      "baseline": "startup/zsh/bare",
+      "check": "v22.22.3",
+      "check_cmd": [
+        "env",
+        "ZDOTDIR=/Users/helge/code/nvm-fast/bench/.sandbox/host/root/rc/zsh/fast",
+        "/bin/zsh",
+        "-i",
+        "-c",
+        "node -v 2>/dev/null; true"
+      ],
+      "prepare": "",
+      "slow": false
+    },
+    {
+      "id": "startup/zsh/fast-nouse",
+      "group": "startup",
+      "tool": "fast",
+      "cmd": [
+        "env",
+        "ZDOTDIR=/Users/helge/code/nvm-fast/bench/.sandbox/host/root/rc/zsh/fast-nouse",
+        "/bin/zsh",
+        "-i",
+        "-c",
+        "exit"
+      ],
+      "ops": 0,
+      "baseline": "startup/zsh/bare",
+      "check": "",
+      "check_cmd": [
+        "env",
+        "ZDOTDIR=/Users/helge/code/nvm-fast/bench/.sandbox/host/root/rc/zsh/fast-nouse",
+        "/bin/zsh",
+        "-i",
+        "-c",
+        "node -v 2>/dev/null; true"
+      ],
+      "prepare": "",
+      "slow": false
+    },
+    {
+      "id": "startup/zsh/fast-cd",
+      "group": "startup",
+      "tool": "fast",
+      "cmd": [
+        "env",
+        "ZDOTDIR=/Users/helge/code/nvm-fast/bench/.sandbox/host/root/rc/zsh/fast-cd",
+        "/bin/zsh",
+        "-i",
+        "-c",
+        "exit"
+      ],
+      "ops": 0,
+      "baseline": "startup/zsh/bare",
+      "check": "v22.22.3",
+      "check_cmd": [
+        "env",
+        "ZDOTDIR=/Users/helge/code/nvm-fast/bench/.sandbox/host/root/rc/zsh/fast-cd",
+        "/bin/zsh",
+        "-i",
+        "-c",
+        "node -v 2>/dev/null; true"
+      ],
+      "prepare": "",
+      "slow": false
+    },
+    {
+      "id": "startup/zsh/fast-autocd",
+      "group": "startup",
+      "tool": "fast",
+      "cmd": [
+        "env",
+        "ZDOTDIR=/Users/helge/code/nvm-fast/bench/.sandbox/host/root/rc/zsh/fast-autocd",
+        "/bin/zsh",
+        "-i",
+        "-c",
+        "exit"
+      ],
+      "ops": 0,
+      "baseline": "startup/zsh/bare",
+      "check": "v22.22.3",
+      "check_cmd": [
+        "env",
+        "ZDOTDIR=/Users/helge/code/nvm-fast/bench/.sandbox/host/root/rc/zsh/fast-autocd",
+        "/bin/zsh",
+        "-i",
+        "-c",
+        "node -v 2>/dev/null; true"
+      ],
+      "prepare": "",
+      "slow": false
+    },
+    {
+      "id": "startup/zsh/fnm",
+      "group": "startup",
+      "tool": "fnm",
+      "cmd": [
+        "env",
+        "ZDOTDIR=/Users/helge/code/nvm-fast/bench/.sandbox/host/root/rc/zsh/fnm",
+        "/bin/zsh",
+        "-i",
+        "-c",
+        "exit"
+      ],
+      "ops": 0,
+      "baseline": "startup/zsh/bare",
+      "check": "v22.22.3",
+      "check_cmd": [
+        "env",
+        "ZDOTDIR=/Users/helge/code/nvm-fast/bench/.sandbox/host/root/rc/zsh/fnm",
+        "/bin/zsh",
+        "-i",
+        "-c",
+        "node -v 2>/dev/null; true"
+      ],
+      "prepare": "",
+      "slow": false
+    },
+    {
+      "id": "use/bash/nvm",
+      "group": "use",
+      "tool": "nvm",
+      "cmd": [
+        "/bin/bash",
+        "--noprofile",
+        "--rcfile",
+        "/Users/helge/code/nvm-fast/bench/.sandbox/host/root/rc/bash/nvm/bashrc",
+        "-i",
+        "-c",
+        "i=0; while [ $i -lt 8 ]; do nvm use 20 >/dev/null; nvm use 22 >/dev/null; i=$((i+1)); done"
+      ],
+      "ops": 16,
+      "baseline": "startup/bash/nvm",
+      "check": "v20.20.2",
+      "check_cmd": [
+        "/bin/bash",
+        "--noprofile",
+        "--rcfile",
+        "/Users/helge/code/nvm-fast/bench/.sandbox/host/root/rc/bash/nvm/bashrc",
+        "-i",
+        "-c",
+        "nvm use 20 >/dev/null; node -v"
+      ],
+      "prepare": "",
+      "slow": true
+    },
+    {
+      "id": "current/bash/nvm",
+      "group": "current",
+      "tool": "nvm",
+      "cmd": [
+        "/bin/bash",
+        "--noprofile",
+        "--rcfile",
+        "/Users/helge/code/nvm-fast/bench/.sandbox/host/root/rc/bash/nvm/bashrc",
+        "-i",
+        "-c",
+        "i=0; while [ $i -lt 20 ]; do nvm current >/dev/null; i=$((i+1)); done"
+      ],
+      "ops": 20,
+      "baseline": "startup/bash/nvm",
+      "check": "v22.22.3",
+      "check_cmd": [
+        "/bin/bash",
+        "--noprofile",
+        "--rcfile",
+        "/Users/helge/code/nvm-fast/bench/.sandbox/host/root/rc/bash/nvm/bashrc",
+        "-i",
+        "-c",
+        "nvm current"
+      ],
+      "prepare": "",
+      "slow": true
+    },
+    {
+      "id": "ls-many/bash/nvm",
+      "group": "ls-many",
+      "tool": "nvm",
+      "cmd": [
+        "/bin/bash",
+        "--noprofile",
+        "--rcfile",
+        "/Users/helge/code/nvm-fast/bench/.sandbox/host/root/rc/bash/nvm-many/bashrc",
+        "-i",
+        "-c",
+        "i=0; while [ $i -lt 1 ]; do nvm ls >/dev/null; i=$((i+1)); done"
+      ],
+      "ops": 1,
+      "baseline": "startup/bash/nvm-many",
+      "check": "v18.100.0",
+      "check_cmd": [
+        "/bin/bash",
+        "--noprofile",
+        "--rcfile",
+        "/Users/helge/code/nvm-fast/bench/.sandbox/host/root/rc/bash/nvm-many/bashrc",
+        "-i",
+        "-c",
+        "nvm ls"
+      ],
+      "prepare": "",
+      "slow": true
+    },
+    {
+      "id": "version/bash/nvm",
+      "group": "version",
+      "tool": "nvm",
+      "cmd": [
+        "/bin/bash",
+        "--noprofile",
+        "--rcfile",
+        "/Users/helge/code/nvm-fast/bench/.sandbox/host/root/rc/bash/nvm/bashrc",
+        "-i",
+        "-c",
+        "i=0; while [ $i -lt 10 ]; do nvm version 20 >/dev/null; i=$((i+1)); done"
+      ],
+      "ops": 10,
+      "baseline": "startup/bash/nvm",
+      "check": "v20.20.2",
+      "check_cmd": [
+        "/bin/bash",
+        "--noprofile",
+        "--rcfile",
+        "/Users/helge/code/nvm-fast/bench/.sandbox/host/root/rc/bash/nvm/bashrc",
+        "-i",
+        "-c",
+        "nvm version 20"
+      ],
+      "prepare": "",
+      "slow": true
+    },
+    {
+      "id": "use/bash/fast",
+      "group": "use",
+      "tool": "fast",
+      "cmd": [
+        "/bin/bash",
+        "--noprofile",
+        "--rcfile",
+        "/Users/helge/code/nvm-fast/bench/.sandbox/host/root/rc/bash/fast/bashrc",
+        "-i",
+        "-c",
+        "i=0; while [ $i -lt 50 ]; do nvm use 20 >/dev/null; nvm use 22 >/dev/null; i=$((i+1)); done"
+      ],
+      "ops": 100,
+      "baseline": "startup/bash/fast",
+      "check": "v20.20.2",
+      "check_cmd": [
+        "/bin/bash",
+        "--noprofile",
+        "--rcfile",
+        "/Users/helge/code/nvm-fast/bench/.sandbox/host/root/rc/bash/fast/bashrc",
+        "-i",
+        "-c",
+        "nvm use 20 >/dev/null; node -v"
+      ],
+      "prepare": "",
+      "slow": true
+    },
+    {
+      "id": "current/bash/fast",
+      "group": "current",
+      "tool": "fast",
+      "cmd": [
+        "/bin/bash",
+        "--noprofile",
+        "--rcfile",
+        "/Users/helge/code/nvm-fast/bench/.sandbox/host/root/rc/bash/fast/bashrc",
+        "-i",
+        "-c",
+        "i=0; while [ $i -lt 100 ]; do nvm current >/dev/null; i=$((i+1)); done"
+      ],
+      "ops": 100,
+      "baseline": "startup/bash/fast",
+      "check": "v22.22.3",
+      "check_cmd": [
+        "/bin/bash",
+        "--noprofile",
+        "--rcfile",
+        "/Users/helge/code/nvm-fast/bench/.sandbox/host/root/rc/bash/fast/bashrc",
+        "-i",
+        "-c",
+        "nvm current"
+      ],
+      "prepare": "",
+      "slow": true
+    },
+    {
+      "id": "ls-many/bash/fast",
+      "group": "ls-many",
+      "tool": "fast",
+      "cmd": [
+        "/bin/bash",
+        "--noprofile",
+        "--rcfile",
+        "/Users/helge/code/nvm-fast/bench/.sandbox/host/root/rc/bash/fast-many/bashrc",
+        "-i",
+        "-c",
+        "i=0; while [ $i -lt 10 ]; do nvm ls >/dev/null; i=$((i+1)); done"
+      ],
+      "ops": 10,
+      "baseline": "startup/bash/fast-many",
+      "check": "v18.100.0",
+      "check_cmd": [
+        "/bin/bash",
+        "--noprofile",
+        "--rcfile",
+        "/Users/helge/code/nvm-fast/bench/.sandbox/host/root/rc/bash/fast-many/bashrc",
+        "-i",
+        "-c",
+        "nvm ls"
+      ],
+      "prepare": "",
+      "slow": false
+    },
+    {
+      "id": "version/bash/fast",
+      "group": "version",
+      "tool": "fast",
+      "cmd": [
+        "/bin/bash",
+        "--noprofile",
+        "--rcfile",
+        "/Users/helge/code/nvm-fast/bench/.sandbox/host/root/rc/bash/fast/bashrc",
+        "-i",
+        "-c",
+        "i=0; while [ $i -lt 100 ]; do nvm version 20 >/dev/null; i=$((i+1)); done"
+      ],
+      "ops": 100,
+      "baseline": "startup/bash/fast",
+      "check": "v20.20.2",
+      "check_cmd": [
+        "/bin/bash",
+        "--noprofile",
+        "--rcfile",
+        "/Users/helge/code/nvm-fast/bench/.sandbox/host/root/rc/bash/fast/bashrc",
+        "-i",
+        "-c",
+        "nvm version 20"
+      ],
+      "prepare": "",
+      "slow": true
+    },
+    {
+      "id": "use/bash/fnm",
+      "group": "use",
+      "tool": "fnm",
+      "cmd": [
+        "/bin/bash",
+        "--noprofile",
+        "--rcfile",
+        "/Users/helge/code/nvm-fast/bench/.sandbox/host/root/rc/bash/fnm/bashrc",
+        "-i",
+        "-c",
+        "i=0; while [ $i -lt 50 ]; do fnm use 20 >/dev/null; fnm use 22 >/dev/null; i=$((i+1)); done"
+      ],
+      "ops": 100,
+      "baseline": "startup/bash/fnm",
+      "check": "v20.20.2",
+      "check_cmd": [
+        "/bin/bash",
+        "--noprofile",
+        "--rcfile",
+        "/Users/helge/code/nvm-fast/bench/.sandbox/host/root/rc/bash/fnm/bashrc",
+        "-i",
+        "-c",
+        "fnm use 20 >/dev/null; node -v"
+      ],
+      "prepare": "",
+      "slow": true
+    },
+    {
+      "id": "current/bash/fnm",
+      "group": "current",
+      "tool": "fnm",
+      "cmd": [
+        "/bin/bash",
+        "--noprofile",
+        "--rcfile",
+        "/Users/helge/code/nvm-fast/bench/.sandbox/host/root/rc/bash/fnm/bashrc",
+        "-i",
+        "-c",
+        "i=0; while [ $i -lt 100 ]; do fnm current >/dev/null; i=$((i+1)); done"
+      ],
+      "ops": 100,
+      "baseline": "startup/bash/fnm",
+      "check": "v22.22.3",
+      "check_cmd": [
+        "/bin/bash",
+        "--noprofile",
+        "--rcfile",
+        "/Users/helge/code/nvm-fast/bench/.sandbox/host/root/rc/bash/fnm/bashrc",
+        "-i",
+        "-c",
+        "fnm current"
+      ],
+      "prepare": "",
+      "slow": true
+    },
+    {
+      "id": "ls-many/bash/fnm",
+      "group": "ls-many",
+      "tool": "fnm",
+      "cmd": [
+        "/bin/bash",
+        "--noprofile",
+        "--rcfile",
+        "/Users/helge/code/nvm-fast/bench/.sandbox/host/root/rc/bash/fnm-many/bashrc",
+        "-i",
+        "-c",
+        "i=0; while [ $i -lt 10 ]; do fnm ls >/dev/null; i=$((i+1)); done"
+      ],
+      "ops": 10,
+      "baseline": "startup/bash/fnm-many",
+      "check": "v18.100.0",
+      "check_cmd": [
+        "/bin/bash",
+        "--noprofile",
+        "--rcfile",
+        "/Users/helge/code/nvm-fast/bench/.sandbox/host/root/rc/bash/fnm-many/bashrc",
+        "-i",
+        "-c",
+        "fnm ls"
+      ],
+      "prepare": "",
+      "slow": false
+    },
+    {
+      "id": "startup/bash/nvm-many",
+      "group": "startup-many",
+      "tool": "nvm",
+      "cmd": [
+        "/bin/bash",
+        "--noprofile",
+        "--rcfile",
+        "/Users/helge/code/nvm-fast/bench/.sandbox/host/root/rc/bash/nvm-many/bashrc",
+        "-i",
+        "-c",
+        "exit"
+      ],
+      "ops": 0,
+      "baseline": "startup/bash/bare",
+      "check": "",
+      "check_cmd": [],
+      "prepare": "",
+      "slow": false
+    },
+    {
+      "id": "startup/bash/fast-many",
+      "group": "startup-many",
+      "tool": "fast",
+      "cmd": [
+        "/bin/bash",
+        "--noprofile",
+        "--rcfile",
+        "/Users/helge/code/nvm-fast/bench/.sandbox/host/root/rc/bash/fast-many/bashrc",
+        "-i",
+        "-c",
+        "exit"
+      ],
+      "ops": 0,
+      "baseline": "startup/bash/bare",
+      "check": "",
+      "check_cmd": [],
+      "prepare": "",
+      "slow": false
+    },
+    {
+      "id": "startup/bash/fnm-many",
+      "group": "startup-many",
+      "tool": "fnm",
+      "cmd": [
+        "/bin/bash",
+        "--noprofile",
+        "--rcfile",
+        "/Users/helge/code/nvm-fast/bench/.sandbox/host/root/rc/bash/fnm-many/bashrc",
+        "-i",
+        "-c",
+        "exit"
+      ],
+      "ops": 0,
+      "baseline": "startup/bash/bare",
+      "check": "",
+      "check_cmd": [],
+      "prepare": "",
+      "slow": false
+    },
+    {
+      "id": "use/zsh/nvm",
+      "group": "use",
+      "tool": "nvm",
+      "cmd": [
+        "env",
+        "ZDOTDIR=/Users/helge/code/nvm-fast/bench/.sandbox/host/root/rc/zsh/nvm",
+        "/bin/zsh",
+        "-i",
+        "-c",
+        "i=0; while [ $i -lt 8 ]; do nvm use 20 >/dev/null; nvm use 22 >/dev/null; i=$((i+1)); done"
+      ],
+      "ops": 16,
+      "baseline": "startup/zsh/nvm",
+      "check": "v20.20.2",
+      "check_cmd": [
+        "env",
+        "ZDOTDIR=/Users/helge/code/nvm-fast/bench/.sandbox/host/root/rc/zsh/nvm",
+        "/bin/zsh",
+        "-i",
+        "-c",
+        "nvm use 20 >/dev/null; node -v"
+      ],
+      "prepare": "",
+      "slow": true
+    },
+    {
+      "id": "current/zsh/nvm",
+      "group": "current",
+      "tool": "nvm",
+      "cmd": [
+        "env",
+        "ZDOTDIR=/Users/helge/code/nvm-fast/bench/.sandbox/host/root/rc/zsh/nvm",
+        "/bin/zsh",
+        "-i",
+        "-c",
+        "i=0; while [ $i -lt 20 ]; do nvm current >/dev/null; i=$((i+1)); done"
+      ],
+      "ops": 20,
+      "baseline": "startup/zsh/nvm",
+      "check": "v22.22.3",
+      "check_cmd": [
+        "env",
+        "ZDOTDIR=/Users/helge/code/nvm-fast/bench/.sandbox/host/root/rc/zsh/nvm",
+        "/bin/zsh",
+        "-i",
+        "-c",
+        "nvm current"
+      ],
+      "prepare": "",
+      "slow": true
+    },
+    {
+      "id": "ls-many/zsh/nvm",
+      "group": "ls-many",
+      "tool": "nvm",
+      "cmd": [
+        "env",
+        "ZDOTDIR=/Users/helge/code/nvm-fast/bench/.sandbox/host/root/rc/zsh/nvm-many",
+        "/bin/zsh",
+        "-i",
+        "-c",
+        "i=0; while [ $i -lt 1 ]; do nvm ls >/dev/null; i=$((i+1)); done"
+      ],
+      "ops": 1,
+      "baseline": "startup/zsh/nvm-many",
+      "check": "v18.100.0",
+      "check_cmd": [
+        "env",
+        "ZDOTDIR=/Users/helge/code/nvm-fast/bench/.sandbox/host/root/rc/zsh/nvm-many",
+        "/bin/zsh",
+        "-i",
+        "-c",
+        "nvm ls"
+      ],
+      "prepare": "",
+      "slow": true
+    },
+    {
+      "id": "version/zsh/nvm",
+      "group": "version",
+      "tool": "nvm",
+      "cmd": [
+        "env",
+        "ZDOTDIR=/Users/helge/code/nvm-fast/bench/.sandbox/host/root/rc/zsh/nvm",
+        "/bin/zsh",
+        "-i",
+        "-c",
+        "i=0; while [ $i -lt 10 ]; do nvm version 20 >/dev/null; i=$((i+1)); done"
+      ],
+      "ops": 10,
+      "baseline": "startup/zsh/nvm",
+      "check": "v20.20.2",
+      "check_cmd": [
+        "env",
+        "ZDOTDIR=/Users/helge/code/nvm-fast/bench/.sandbox/host/root/rc/zsh/nvm",
+        "/bin/zsh",
+        "-i",
+        "-c",
+        "nvm version 20"
+      ],
+      "prepare": "",
+      "slow": true
+    },
+    {
+      "id": "use/zsh/fast",
+      "group": "use",
+      "tool": "fast",
+      "cmd": [
+        "env",
+        "ZDOTDIR=/Users/helge/code/nvm-fast/bench/.sandbox/host/root/rc/zsh/fast",
+        "/bin/zsh",
+        "-i",
+        "-c",
+        "i=0; while [ $i -lt 50 ]; do nvm use 20 >/dev/null; nvm use 22 >/dev/null; i=$((i+1)); done"
+      ],
+      "ops": 100,
+      "baseline": "startup/zsh/fast",
+      "check": "v20.20.2",
+      "check_cmd": [
+        "env",
+        "ZDOTDIR=/Users/helge/code/nvm-fast/bench/.sandbox/host/root/rc/zsh/fast",
+        "/bin/zsh",
+        "-i",
+        "-c",
+        "nvm use 20 >/dev/null; node -v"
+      ],
+      "prepare": "",
+      "slow": true
+    },
+    {
+      "id": "current/zsh/fast",
+      "group": "current",
+      "tool": "fast",
+      "cmd": [
+        "env",
+        "ZDOTDIR=/Users/helge/code/nvm-fast/bench/.sandbox/host/root/rc/zsh/fast",
+        "/bin/zsh",
+        "-i",
+        "-c",
+        "i=0; while [ $i -lt 100 ]; do nvm current >/dev/null; i=$((i+1)); done"
+      ],
+      "ops": 100,
+      "baseline": "startup/zsh/fast",
+      "check": "v22.22.3",
+      "check_cmd": [
+        "env",
+        "ZDOTDIR=/Users/helge/code/nvm-fast/bench/.sandbox/host/root/rc/zsh/fast",
+        "/bin/zsh",
+        "-i",
+        "-c",
+        "nvm current"
+      ],
+      "prepare": "",
+      "slow": true
+    },
+    {
+      "id": "ls-many/zsh/fast",
+      "group": "ls-many",
+      "tool": "fast",
+      "cmd": [
+        "env",
+        "ZDOTDIR=/Users/helge/code/nvm-fast/bench/.sandbox/host/root/rc/zsh/fast-many",
+        "/bin/zsh",
+        "-i",
+        "-c",
+        "i=0; while [ $i -lt 10 ]; do nvm ls >/dev/null; i=$((i+1)); done"
+      ],
+      "ops": 10,
+      "baseline": "startup/zsh/fast-many",
+      "check": "v18.100.0",
+      "check_cmd": [
+        "env",
+        "ZDOTDIR=/Users/helge/code/nvm-fast/bench/.sandbox/host/root/rc/zsh/fast-many",
+        "/bin/zsh",
+        "-i",
+        "-c",
+        "nvm ls"
+      ],
+      "prepare": "",
+      "slow": false
+    },
+    {
+      "id": "version/zsh/fast",
+      "group": "version",
+      "tool": "fast",
+      "cmd": [
+        "env",
+        "ZDOTDIR=/Users/helge/code/nvm-fast/bench/.sandbox/host/root/rc/zsh/fast",
+        "/bin/zsh",
+        "-i",
+        "-c",
+        "i=0; while [ $i -lt 100 ]; do nvm version 20 >/dev/null; i=$((i+1)); done"
+      ],
+      "ops": 100,
+      "baseline": "startup/zsh/fast",
+      "check": "v20.20.2",
+      "check_cmd": [
+        "env",
+        "ZDOTDIR=/Users/helge/code/nvm-fast/bench/.sandbox/host/root/rc/zsh/fast",
+        "/bin/zsh",
+        "-i",
+        "-c",
+        "nvm version 20"
+      ],
+      "prepare": "",
+      "slow": true
+    },
+    {
+      "id": "use/zsh/fnm",
+      "group": "use",
+      "tool": "fnm",
+      "cmd": [
+        "env",
+        "ZDOTDIR=/Users/helge/code/nvm-fast/bench/.sandbox/host/root/rc/zsh/fnm",
+        "/bin/zsh",
+        "-i",
+        "-c",
+        "i=0; while [ $i -lt 50 ]; do fnm use 20 >/dev/null; fnm use 22 >/dev/null; i=$((i+1)); done"
+      ],
+      "ops": 100,
+      "baseline": "startup/zsh/fnm",
+      "check": "v20.20.2",
+      "check_cmd": [
+        "env",
+        "ZDOTDIR=/Users/helge/code/nvm-fast/bench/.sandbox/host/root/rc/zsh/fnm",
+        "/bin/zsh",
+        "-i",
+        "-c",
+        "fnm use 20 >/dev/null; node -v"
+      ],
+      "prepare": "",
+      "slow": true
+    },
+    {
+      "id": "current/zsh/fnm",
+      "group": "current",
+      "tool": "fnm",
+      "cmd": [
+        "env",
+        "ZDOTDIR=/Users/helge/code/nvm-fast/bench/.sandbox/host/root/rc/zsh/fnm",
+        "/bin/zsh",
+        "-i",
+        "-c",
+        "i=0; while [ $i -lt 100 ]; do fnm current >/dev/null; i=$((i+1)); done"
+      ],
+      "ops": 100,
+      "baseline": "startup/zsh/fnm",
+      "check": "v22.22.3",
+      "check_cmd": [
+        "env",
+        "ZDOTDIR=/Users/helge/code/nvm-fast/bench/.sandbox/host/root/rc/zsh/fnm",
+        "/bin/zsh",
+        "-i",
+        "-c",
+        "fnm current"
+      ],
+      "prepare": "",
+      "slow": true
+    },
+    {
+      "id": "ls-many/zsh/fnm",
+      "group": "ls-many",
+      "tool": "fnm",
+      "cmd": [
+        "env",
+        "ZDOTDIR=/Users/helge/code/nvm-fast/bench/.sandbox/host/root/rc/zsh/fnm-many",
+        "/bin/zsh",
+        "-i",
+        "-c",
+        "i=0; while [ $i -lt 10 ]; do fnm ls >/dev/null; i=$((i+1)); done"
+      ],
+      "ops": 10,
+      "baseline": "startup/zsh/fnm-many",
+      "check": "v18.100.0",
+      "check_cmd": [
+        "env",
+        "ZDOTDIR=/Users/helge/code/nvm-fast/bench/.sandbox/host/root/rc/zsh/fnm-many",
+        "/bin/zsh",
+        "-i",
+        "-c",
+        "fnm ls"
+      ],
+      "prepare": "",
+      "slow": false
+    },
+    {
+      "id": "startup/zsh/nvm-many",
+      "group": "startup-many",
+      "tool": "nvm",
+      "cmd": [
+        "env",
+        "ZDOTDIR=/Users/helge/code/nvm-fast/bench/.sandbox/host/root/rc/zsh/nvm-many",
+        "/bin/zsh",
+        "-i",
+        "-c",
+        "exit"
+      ],
+      "ops": 0,
+      "baseline": "startup/zsh/bare",
+      "check": "",
+      "check_cmd": [],
+      "prepare": "",
+      "slow": true
+    },
+    {
+      "id": "startup/zsh/fast-many",
+      "group": "startup-many",
+      "tool": "fast",
+      "cmd": [
+        "env",
+        "ZDOTDIR=/Users/helge/code/nvm-fast/bench/.sandbox/host/root/rc/zsh/fast-many",
+        "/bin/zsh",
+        "-i",
+        "-c",
+        "exit"
+      ],
+      "ops": 0,
+      "baseline": "startup/zsh/bare",
+      "check": "",
+      "check_cmd": [],
+      "prepare": "",
+      "slow": false
+    },
+    {
+      "id": "startup/zsh/fnm-many",
+      "group": "startup-many",
+      "tool": "fnm",
+      "cmd": [
+        "env",
+        "ZDOTDIR=/Users/helge/code/nvm-fast/bench/.sandbox/host/root/rc/zsh/fnm-many",
+        "/bin/zsh",
+        "-i",
+        "-c",
+        "exit"
+      ],
+      "ops": 0,
+      "baseline": "startup/zsh/bare",
+      "check": "",
+      "check_cmd": [],
+      "prepare": "",
+      "slow": false
+    },
+    {
+      "id": "cd-switch/bash/nvm",
+      "group": "cd-switch",
+      "tool": "nvm",
+      "cmd": [
+        "/bin/bash",
+        "--noprofile",
+        "--rcfile",
+        "/Users/helge/code/nvm-fast/bench/.sandbox/host/root/rc/bash/nvm-cd/bashrc",
+        "-i",
+        "-c",
+        "builtin cd /Users/helge/code/nvm-fast/bench/.sandbox/host/root/proj; i=0; while [ $i -lt 4 ]; do cd /Users/helge/code/nvm-fast/bench/.sandbox/host/root/proj/a >/dev/null; cd /Users/helge/code/nvm-fast/bench/.sandbox/host/root/proj/b >/dev/null; i=$((i+1)); done"
+      ],
+      "ops": 8,
+      "baseline": "startup/bash/nvm-cd",
+      "check": "v20.20.2",
+      "check_cmd": [
+        "/bin/bash",
+        "--noprofile",
+        "--rcfile",
+        "/Users/helge/code/nvm-fast/bench/.sandbox/host/root/rc/bash/nvm-cd/bashrc",
+        "-i",
+        "-c",
+        "cd /Users/helge/code/nvm-fast/bench/.sandbox/host/root/proj/a >/dev/null; node -v"
+      ],
+      "prepare": "",
+      "slow": true
+    },
+    {
+      "id": "cd-nochange/bash/nvm",
+      "group": "cd-nochange",
+      "tool": "nvm",
+      "cmd": [
+        "/bin/bash",
+        "--noprofile",
+        "--rcfile",
+        "/Users/helge/code/nvm-fast/bench/.sandbox/host/root/rc/bash/nvm-cd/bashrc",
+        "-i",
+        "-c",
+        "builtin cd /Users/helge/code/nvm-fast/bench/.sandbox/host/root/proj; i=0; while [ $i -lt 20 ]; do cd /Users/helge/code/nvm-fast/bench/.sandbox/host/root/proj/plain1; cd /Users/helge/code/nvm-fast/bench/.sandbox/host/root/proj/plain2; i=$((i+1)); done"
+      ],
+      "ops": 40,
+      "baseline": "startup/bash/nvm-cd",
+      "check": "v22.22.3",
+      "check_cmd": [
+        "/bin/bash",
+        "--noprofile",
+        "--rcfile",
+        "/Users/helge/code/nvm-fast/bench/.sandbox/host/root/rc/bash/nvm-cd/bashrc",
+        "-i",
+        "-c",
+        "cd /Users/helge/code/nvm-fast/bench/.sandbox/host/root/proj/plain1; node -v"
+      ],
+      "prepare": "",
+      "slow": true
+    },
+    {
+      "id": "cd-switch/bash/fast",
+      "group": "cd-switch",
+      "tool": "fast",
+      "cmd": [
+        "/bin/bash",
+        "--noprofile",
+        "--rcfile",
+        "/Users/helge/code/nvm-fast/bench/.sandbox/host/root/rc/bash/fast-cd/bashrc",
+        "-i",
+        "-c",
+        "builtin cd /Users/helge/code/nvm-fast/bench/.sandbox/host/root/proj; i=0; while [ $i -lt 20 ]; do cd /Users/helge/code/nvm-fast/bench/.sandbox/host/root/proj/a >/dev/null; cd /Users/helge/code/nvm-fast/bench/.sandbox/host/root/proj/b >/dev/null; i=$((i+1)); done"
+      ],
+      "ops": 40,
+      "baseline": "startup/bash/fast-cd",
+      "check": "v20.20.2",
+      "check_cmd": [
+        "/bin/bash",
+        "--noprofile",
+        "--rcfile",
+        "/Users/helge/code/nvm-fast/bench/.sandbox/host/root/rc/bash/fast-cd/bashrc",
+        "-i",
+        "-c",
+        "cd /Users/helge/code/nvm-fast/bench/.sandbox/host/root/proj/a >/dev/null; node -v"
+      ],
+      "prepare": "",
+      "slow": true
+    },
+    {
+      "id": "cd-nochange/bash/fast",
+      "group": "cd-nochange",
+      "tool": "fast",
+      "cmd": [
+        "/bin/bash",
+        "--noprofile",
+        "--rcfile",
+        "/Users/helge/code/nvm-fast/bench/.sandbox/host/root/rc/bash/fast-cd/bashrc",
+        "-i",
+        "-c",
+        "builtin cd /Users/helge/code/nvm-fast/bench/.sandbox/host/root/proj; i=0; while [ $i -lt 40 ]; do cd /Users/helge/code/nvm-fast/bench/.sandbox/host/root/proj/plain1; cd /Users/helge/code/nvm-fast/bench/.sandbox/host/root/proj/plain2; i=$((i+1)); done"
+      ],
+      "ops": 80,
+      "baseline": "startup/bash/fast-cd",
+      "check": "v22.22.3",
+      "check_cmd": [
+        "/bin/bash",
+        "--noprofile",
+        "--rcfile",
+        "/Users/helge/code/nvm-fast/bench/.sandbox/host/root/rc/bash/fast-cd/bashrc",
+        "-i",
+        "-c",
+        "cd /Users/helge/code/nvm-fast/bench/.sandbox/host/root/proj/plain1; node -v"
+      ],
+      "prepare": "",
+      "slow": true
+    },
+    {
+      "id": "cd-switch/bash/fast-native",
+      "group": "cd-switch",
+      "tool": "fast",
+      "cmd": [
+        "/bin/bash",
+        "--noprofile",
+        "--rcfile",
+        "/Users/helge/code/nvm-fast/bench/.sandbox/host/root/rc/bash/fast-autocd/bashrc",
+        "-i",
+        "-c",
+        "builtin cd /Users/helge/code/nvm-fast/bench/.sandbox/host/root/proj; i=0; while [ $i -lt 50 ]; do cd /Users/helge/code/nvm-fast/bench/.sandbox/host/root/proj/a >/dev/null; cd /Users/helge/code/nvm-fast/bench/.sandbox/host/root/proj/b >/dev/null; i=$((i+1)); done"
+      ],
+      "ops": 100,
+      "baseline": "startup/bash/fast-autocd",
+      "check": "v20.20.2",
+      "check_cmd": [
+        "/bin/bash",
+        "--noprofile",
+        "--rcfile",
+        "/Users/helge/code/nvm-fast/bench/.sandbox/host/root/rc/bash/fast-autocd/bashrc",
+        "-i",
+        "-c",
+        "cd /Users/helge/code/nvm-fast/bench/.sandbox/host/root/proj/a >/dev/null; node -v"
+      ],
+      "prepare": "",
+      "slow": true
+    },
+    {
+      "id": "cd-nochange/bash/fast-native",
+      "group": "cd-nochange",
+      "tool": "fast",
+      "cmd": [
+        "/bin/bash",
+        "--noprofile",
+        "--rcfile",
+        "/Users/helge/code/nvm-fast/bench/.sandbox/host/root/rc/bash/fast-autocd/bashrc",
+        "-i",
+        "-c",
+        "builtin cd /Users/helge/code/nvm-fast/bench/.sandbox/host/root/proj; i=0; while [ $i -lt 50 ]; do cd /Users/helge/code/nvm-fast/bench/.sandbox/host/root/proj/plain1; cd /Users/helge/code/nvm-fast/bench/.sandbox/host/root/proj/plain2; i=$((i+1)); done"
+      ],
+      "ops": 100,
+      "baseline": "startup/bash/fast-autocd",
+      "check": "v22.22.3",
+      "check_cmd": [
+        "/bin/bash",
+        "--noprofile",
+        "--rcfile",
+        "/Users/helge/code/nvm-fast/bench/.sandbox/host/root/rc/bash/fast-autocd/bashrc",
+        "-i",
+        "-c",
+        "cd /Users/helge/code/nvm-fast/bench/.sandbox/host/root/proj/plain1; node -v"
+      ],
+      "prepare": "",
+      "slow": true
+    },
+    {
+      "id": "cd-switch/bash/fnm",
+      "group": "cd-switch",
+      "tool": "fnm",
+      "cmd": [
+        "/bin/bash",
+        "--noprofile",
+        "--rcfile",
+        "/Users/helge/code/nvm-fast/bench/.sandbox/host/root/rc/bash/fnm/bashrc",
+        "-i",
+        "-c",
+        "builtin cd /Users/helge/code/nvm-fast/bench/.sandbox/host/root/proj; i=0; while [ $i -lt 50 ]; do cd /Users/helge/code/nvm-fast/bench/.sandbox/host/root/proj/a >/dev/null; cd /Users/helge/code/nvm-fast/bench/.sandbox/host/root/proj/b >/dev/null; i=$((i+1)); done"
+      ],
+      "ops": 100,
+      "baseline": "startup/bash/fnm",
+      "check": "v20.20.2",
+      "check_cmd": [
+        "/bin/bash",
+        "--noprofile",
+        "--rcfile",
+        "/Users/helge/code/nvm-fast/bench/.sandbox/host/root/rc/bash/fnm/bashrc",
+        "-i",
+        "-c",
+        "cd /Users/helge/code/nvm-fast/bench/.sandbox/host/root/proj/a >/dev/null; node -v"
+      ],
+      "prepare": "",
+      "slow": true
+    },
+    {
+      "id": "cd-nochange/bash/fnm",
+      "group": "cd-nochange",
+      "tool": "fnm",
+      "cmd": [
+        "/bin/bash",
+        "--noprofile",
+        "--rcfile",
+        "/Users/helge/code/nvm-fast/bench/.sandbox/host/root/rc/bash/fnm/bashrc",
+        "-i",
+        "-c",
+        "builtin cd /Users/helge/code/nvm-fast/bench/.sandbox/host/root/proj; i=0; while [ $i -lt 50 ]; do cd /Users/helge/code/nvm-fast/bench/.sandbox/host/root/proj/plain1; cd /Users/helge/code/nvm-fast/bench/.sandbox/host/root/proj/plain2; i=$((i+1)); done"
+      ],
+      "ops": 100,
+      "baseline": "startup/bash/fnm",
+      "check": "v22.22.3",
+      "check_cmd": [
+        "/bin/bash",
+        "--noprofile",
+        "--rcfile",
+        "/Users/helge/code/nvm-fast/bench/.sandbox/host/root/rc/bash/fnm/bashrc",
+        "-i",
+        "-c",
+        "cd /Users/helge/code/nvm-fast/bench/.sandbox/host/root/proj/plain1; node -v"
+      ],
+      "prepare": "",
+      "slow": false
+    },
+    {
+      "id": "cd-switch/zsh/nvm",
+      "group": "cd-switch",
+      "tool": "nvm",
+      "cmd": [
+        "env",
+        "ZDOTDIR=/Users/helge/code/nvm-fast/bench/.sandbox/host/root/rc/zsh/nvm-cd",
+        "/bin/zsh",
+        "-i",
+        "-c",
+        "cd -q /Users/helge/code/nvm-fast/bench/.sandbox/host/root/proj; i=0; while [ $i -lt 4 ]; do cd /Users/helge/code/nvm-fast/bench/.sandbox/host/root/proj/a >/dev/null; cd /Users/helge/code/nvm-fast/bench/.sandbox/host/root/proj/b >/dev/null; i=$((i+1)); done"
+      ],
+      "ops": 8,
+      "baseline": "startup/zsh/nvm-cd",
+      "check": "v20.20.2",
+      "check_cmd": [
+        "env",
+        "ZDOTDIR=/Users/helge/code/nvm-fast/bench/.sandbox/host/root/rc/zsh/nvm-cd",
+        "/bin/zsh",
+        "-i",
+        "-c",
+        "cd /Users/helge/code/nvm-fast/bench/.sandbox/host/root/proj/a >/dev/null; node -v"
+      ],
+      "prepare": "",
+      "slow": true
+    },
+    {
+      "id": "cd-nochange/zsh/nvm",
+      "group": "cd-nochange",
+      "tool": "nvm",
+      "cmd": [
+        "env",
+        "ZDOTDIR=/Users/helge/code/nvm-fast/bench/.sandbox/host/root/rc/zsh/nvm-cd",
+        "/bin/zsh",
+        "-i",
+        "-c",
+        "cd -q /Users/helge/code/nvm-fast/bench/.sandbox/host/root/proj; i=0; while [ $i -lt 20 ]; do cd /Users/helge/code/nvm-fast/bench/.sandbox/host/root/proj/plain1; cd /Users/helge/code/nvm-fast/bench/.sandbox/host/root/proj/plain2; i=$((i+1)); done"
+      ],
+      "ops": 40,
+      "baseline": "startup/zsh/nvm-cd",
+      "check": "v22.22.3",
+      "check_cmd": [
+        "env",
+        "ZDOTDIR=/Users/helge/code/nvm-fast/bench/.sandbox/host/root/rc/zsh/nvm-cd",
+        "/bin/zsh",
+        "-i",
+        "-c",
+        "cd /Users/helge/code/nvm-fast/bench/.sandbox/host/root/proj/plain1; node -v"
+      ],
+      "prepare": "",
+      "slow": true
+    },
+    {
+      "id": "cd-switch/zsh/fast",
+      "group": "cd-switch",
+      "tool": "fast",
+      "cmd": [
+        "env",
+        "ZDOTDIR=/Users/helge/code/nvm-fast/bench/.sandbox/host/root/rc/zsh/fast-cd",
+        "/bin/zsh",
+        "-i",
+        "-c",
+        "cd -q /Users/helge/code/nvm-fast/bench/.sandbox/host/root/proj; i=0; while [ $i -lt 20 ]; do cd /Users/helge/code/nvm-fast/bench/.sandbox/host/root/proj/a >/dev/null; cd /Users/helge/code/nvm-fast/bench/.sandbox/host/root/proj/b >/dev/null; i=$((i+1)); done"
+      ],
+      "ops": 40,
+      "baseline": "startup/zsh/fast-cd",
+      "check": "v20.20.2",
+      "check_cmd": [
+        "env",
+        "ZDOTDIR=/Users/helge/code/nvm-fast/bench/.sandbox/host/root/rc/zsh/fast-cd",
+        "/bin/zsh",
+        "-i",
+        "-c",
+        "cd /Users/helge/code/nvm-fast/bench/.sandbox/host/root/proj/a >/dev/null; node -v"
+      ],
+      "prepare": "",
+      "slow": true
+    },
+    {
+      "id": "cd-nochange/zsh/fast",
+      "group": "cd-nochange",
+      "tool": "fast",
+      "cmd": [
+        "env",
+        "ZDOTDIR=/Users/helge/code/nvm-fast/bench/.sandbox/host/root/rc/zsh/fast-cd",
+        "/bin/zsh",
+        "-i",
+        "-c",
+        "cd -q /Users/helge/code/nvm-fast/bench/.sandbox/host/root/proj; i=0; while [ $i -lt 40 ]; do cd /Users/helge/code/nvm-fast/bench/.sandbox/host/root/proj/plain1; cd /Users/helge/code/nvm-fast/bench/.sandbox/host/root/proj/plain2; i=$((i+1)); done"
+      ],
+      "ops": 80,
+      "baseline": "startup/zsh/fast-cd",
+      "check": "v22.22.3",
+      "check_cmd": [
+        "env",
+        "ZDOTDIR=/Users/helge/code/nvm-fast/bench/.sandbox/host/root/rc/zsh/fast-cd",
+        "/bin/zsh",
+        "-i",
+        "-c",
+        "cd /Users/helge/code/nvm-fast/bench/.sandbox/host/root/proj/plain1; node -v"
+      ],
+      "prepare": "",
+      "slow": true
+    },
+    {
+      "id": "cd-switch/zsh/fast-native",
+      "group": "cd-switch",
+      "tool": "fast",
+      "cmd": [
+        "env",
+        "ZDOTDIR=/Users/helge/code/nvm-fast/bench/.sandbox/host/root/rc/zsh/fast-autocd",
+        "/bin/zsh",
+        "-i",
+        "-c",
+        "cd -q /Users/helge/code/nvm-fast/bench/.sandbox/host/root/proj; i=0; while [ $i -lt 50 ]; do cd /Users/helge/code/nvm-fast/bench/.sandbox/host/root/proj/a >/dev/null; cd /Users/helge/code/nvm-fast/bench/.sandbox/host/root/proj/b >/dev/null; i=$((i+1)); done"
+      ],
+      "ops": 100,
+      "baseline": "startup/zsh/fast-autocd",
+      "check": "v20.20.2",
+      "check_cmd": [
+        "env",
+        "ZDOTDIR=/Users/helge/code/nvm-fast/bench/.sandbox/host/root/rc/zsh/fast-autocd",
+        "/bin/zsh",
+        "-i",
+        "-c",
+        "cd /Users/helge/code/nvm-fast/bench/.sandbox/host/root/proj/a >/dev/null; node -v"
+      ],
+      "prepare": "",
+      "slow": true
+    },
+    {
+      "id": "cd-nochange/zsh/fast-native",
+      "group": "cd-nochange",
+      "tool": "fast",
+      "cmd": [
+        "env",
+        "ZDOTDIR=/Users/helge/code/nvm-fast/bench/.sandbox/host/root/rc/zsh/fast-autocd",
+        "/bin/zsh",
+        "-i",
+        "-c",
+        "cd -q /Users/helge/code/nvm-fast/bench/.sandbox/host/root/proj; i=0; while [ $i -lt 50 ]; do cd /Users/helge/code/nvm-fast/bench/.sandbox/host/root/proj/plain1; cd /Users/helge/code/nvm-fast/bench/.sandbox/host/root/proj/plain2; i=$((i+1)); done"
+      ],
+      "ops": 100,
+      "baseline": "startup/zsh/fast-autocd",
+      "check": "v22.22.3",
+      "check_cmd": [
+        "env",
+        "ZDOTDIR=/Users/helge/code/nvm-fast/bench/.sandbox/host/root/rc/zsh/fast-autocd",
+        "/bin/zsh",
+        "-i",
+        "-c",
+        "cd /Users/helge/code/nvm-fast/bench/.sandbox/host/root/proj/plain1; node -v"
+      ],
+      "prepare": "",
+      "slow": true
+    },
+    {
+      "id": "cd-switch/zsh/fnm",
+      "group": "cd-switch",
+      "tool": "fnm",
+      "cmd": [
+        "env",
+        "ZDOTDIR=/Users/helge/code/nvm-fast/bench/.sandbox/host/root/rc/zsh/fnm",
+        "/bin/zsh",
+        "-i",
+        "-c",
+        "cd -q /Users/helge/code/nvm-fast/bench/.sandbox/host/root/proj; i=0; while [ $i -lt 50 ]; do cd /Users/helge/code/nvm-fast/bench/.sandbox/host/root/proj/a >/dev/null; cd /Users/helge/code/nvm-fast/bench/.sandbox/host/root/proj/b >/dev/null; i=$((i+1)); done"
+      ],
+      "ops": 100,
+      "baseline": "startup/zsh/fnm",
+      "check": "v20.20.2",
+      "check_cmd": [
+        "env",
+        "ZDOTDIR=/Users/helge/code/nvm-fast/bench/.sandbox/host/root/rc/zsh/fnm",
+        "/bin/zsh",
+        "-i",
+        "-c",
+        "cd /Users/helge/code/nvm-fast/bench/.sandbox/host/root/proj/a >/dev/null; node -v"
+      ],
+      "prepare": "",
+      "slow": true
+    },
+    {
+      "id": "cd-nochange/zsh/fnm",
+      "group": "cd-nochange",
+      "tool": "fnm",
+      "cmd": [
+        "env",
+        "ZDOTDIR=/Users/helge/code/nvm-fast/bench/.sandbox/host/root/rc/zsh/fnm",
+        "/bin/zsh",
+        "-i",
+        "-c",
+        "cd -q /Users/helge/code/nvm-fast/bench/.sandbox/host/root/proj; i=0; while [ $i -lt 50 ]; do cd /Users/helge/code/nvm-fast/bench/.sandbox/host/root/proj/plain1; cd /Users/helge/code/nvm-fast/bench/.sandbox/host/root/proj/plain2; i=$((i+1)); done"
+      ],
+      "ops": 100,
+      "baseline": "startup/zsh/fnm",
+      "check": "v22.22.3",
+      "check_cmd": [
+        "env",
+        "ZDOTDIR=/Users/helge/code/nvm-fast/bench/.sandbox/host/root/rc/zsh/fnm",
+        "/bin/zsh",
+        "-i",
+        "-c",
+        "cd /Users/helge/code/nvm-fast/bench/.sandbox/host/root/proj/plain1; node -v"
+      ],
+      "prepare": "",
+      "slow": false
+    },
+    {
+      "id": "process/nvm-core-current",
+      "group": "process",
+      "tool": "fast",
+      "cmd": [
+        "/Users/helge/code/nvm-fast/bench/.sandbox/host/root/fast/nvm-core",
+        "current"
+      ],
+      "ops": 0,
+      "baseline": "",
+      "check": "",
+      "check_cmd": [],
+      "prepare": "",
+      "slow": false
+    },
+    {
+      "id": "process/nvm-core-auto-use",
+      "group": "process",
+      "tool": "fast",
+      "cmd": [
+        "/Users/helge/code/nvm-fast/bench/.sandbox/host/root/fast/nvm-core",
+        "__auto",
+        "use"
+      ],
+      "ops": 0,
+      "baseline": "",
+      "check": "",
+      "check_cmd": [],
+      "prepare": "",
+      "slow": false
+    },
+    {
+      "id": "process/nvm-core-version",
+      "group": "process",
+      "tool": "fast",
+      "cmd": [
+        "/Users/helge/code/nvm-fast/bench/.sandbox/host/root/fast/nvm-core",
+        "version",
+        "20"
+      ],
+      "ops": 0,
+      "baseline": "",
+      "check": "",
+      "check_cmd": [],
+      "prepare": "",
+      "slow": false
+    },
+    {
+      "id": "process/fnm-env",
+      "group": "process",
+      "tool": "fnm",
+      "cmd": [
+        "/Users/helge/code/nvm-fast/bench/.sandbox/host/root/bin/fnm",
+        "env",
+        "--shell",
+        "bash"
+      ],
+      "ops": 0,
+      "baseline": "",
+      "check": "",
+      "check_cmd": [],
+      "prepare": "",
+      "slow": false
+    },
+    {
+      "id": "process/fnm-ls",
+      "group": "process",
+      "tool": "fnm",
+      "cmd": [
+        "/Users/helge/code/nvm-fast/bench/.sandbox/host/root/bin/fnm",
+        "ls"
+      ],
+      "ops": 0,
+      "baseline": "",
+      "check": "",
+      "check_cmd": [],
+      "prepare": "",
+      "slow": false
+    },
+    {
+      "id": "process/nvm-core-ls",
+      "group": "process",
+      "tool": "fast",
+      "cmd": [
+        "/Users/helge/code/nvm-fast/bench/.sandbox/host/root/fast/nvm-core",
+        "ls"
+      ],
+      "ops": 0,
+      "baseline": "",
+      "check": "",
+      "check_cmd": [],
+      "prepare": "",
+      "slow": false
+    },
+    {
+      "id": "process/true",
+      "group": "process",
+      "tool": "bare",
+      "cmd": [
+        "true"
+      ],
+      "ops": 0,
+      "baseline": "",
+      "check": "",
+      "check_cmd": [],
+      "prepare": "",
+      "slow": false
+    },
+    {
+      "id": "install/bash/nvm",
+      "group": "install",
+      "tool": "nvm",
+      "cmd": [
+        "/bin/bash",
+        "--noprofile",
+        "--rcfile",
+        "/Users/helge/code/nvm-fast/bench/.sandbox/host/root/rc/bash/nvm-nouse/bashrc",
+        "-i",
+        "-c",
+        "NVM_NODEJS_ORG_MIRROR=http://127.0.0.1:59671 nvm install v20.20.2 >/dev/null 2>&1"
+      ],
+      "ops": 0,
+      "baseline": "",
+      "check": "v20.20.2",
+      "check_cmd": [
+        "/bin/bash",
+        "--noprofile",
+        "--rcfile",
+        "/Users/helge/code/nvm-fast/bench/.sandbox/host/root/rc/bash/nvm-nouse/bashrc",
+        "-i",
+        "-c",
+        "NVM_NODEJS_ORG_MIRROR=http://127.0.0.1:59671 nvm install v20.20.2 >/dev/null 2>&1; nvm exec --silent v20.20.2 node -v"
+      ],
+      "prepare": "rm -rf /Users/helge/code/nvm-fast/bench/.sandbox/host/root/nvm/versions/node/v20.20.2 /Users/helge/code/nvm-fast/bench/.sandbox/host/root/nvm/.cache",
+      "slow": true
+    },
+    {
+      "id": "install/bash/fast",
+      "group": "install",
+      "tool": "fast",
+      "cmd": [
+        "/bin/bash",
+        "--noprofile",
+        "--rcfile",
+        "/Users/helge/code/nvm-fast/bench/.sandbox/host/root/rc/bash/fast-nouse/bashrc",
+        "-i",
+        "-c",
+        "NVM_NODEJS_ORG_MIRROR=http://127.0.0.1:59671 nvm install v20.20.2 >/dev/null 2>&1"
+      ],
+      "ops": 0,
+      "baseline": "",
+      "check": "v20.20.2",
+      "check_cmd": [
+        "/bin/bash",
+        "--noprofile",
+        "--rcfile",
+        "/Users/helge/code/nvm-fast/bench/.sandbox/host/root/rc/bash/fast-nouse/bashrc",
+        "-i",
+        "-c",
+        "NVM_NODEJS_ORG_MIRROR=http://127.0.0.1:59671 nvm install v20.20.2 >/dev/null 2>&1; nvm exec --silent v20.20.2 node -v"
+      ],
+      "prepare": "rm -rf /Users/helge/code/nvm-fast/bench/.sandbox/host/root/fast/versions/node/v20.20.2 /Users/helge/code/nvm-fast/bench/.sandbox/host/root/fast/.cache",
+      "slow": true
+    },
+    {
+      "id": "install/bash/fnm",
+      "group": "install",
+      "tool": "fnm",
+      "cmd": [
+        "/bin/bash",
+        "--noprofile",
+        "--rcfile",
+        "/Users/helge/code/nvm-fast/bench/.sandbox/host/root/rc/bash/fnm/bashrc",
+        "-i",
+        "-c",
+        "FNM_NODE_DIST_MIRROR=http://127.0.0.1:59671 fnm install v20.20.2 >/dev/null 2>&1"
+      ],
+      "ops": 0,
+      "baseline": "",
+      "check": "v20.20.2",
+      "check_cmd": [
+        "/bin/bash",
+        "--noprofile",
+        "--rcfile",
+        "/Users/helge/code/nvm-fast/bench/.sandbox/host/root/rc/bash/fnm/bashrc",
+        "-i",
+        "-c",
+        "FNM_NODE_DIST_MIRROR=http://127.0.0.1:59671 fnm install v20.20.2 >/dev/null 2>&1; fnm exec --using=v20.20.2 node -v"
+      ],
+      "prepare": "rm -rf /Users/helge/code/nvm-fast/bench/.sandbox/host/root/fnm/node-versions/v20.20.2",
+      "slow": true
+    }
+  ],
+  "rounds_log": [
+    {
+      "round": 0,
+      "load_before": [
+        25.74,
+        19.9,
+        21.71
+      ],
+      "order": [
+        "use/bash/fnm",
+        "startup/bash/nvm",
+        "startup/bash/fast",
+        "cd-switch/zsh/fast-native",
+        "version/bash/nvm",
+        "startup/zsh/fast-cd",
+        "cd-switch/bash/fast-native",
+        "ls-many/zsh/fast",
+        "startup/bash/fnm",
+        "cd-switch/zsh/fast",
+        "startup/zsh/fnm",
+        "startup/zsh/nvm-many",
+        "ls-many/bash/fast",
+        "cd-nochange/bash/fast-native",
+        "startup/zsh/nvm-nouse",
+        "startup/zsh/fast-nouse",
+        "current/bash/fnm",
+        "install/bash/fast",
+        "ls-many/bash/nvm",
+        "cd-nochange/zsh/fast-native",
+        "cd-switch/bash/nvm",
+        "startup/bash/fast-nouse",
+        "cd-nochange/zsh/fast",
+        "startup/zsh/nvm",
+        "version/bash/fast",
+        "process/nvm-core-auto-use",
+        "current/zsh/fnm",
+        "use/bash/nvm",
+        "ls-many/zsh/nvm",
+        "startup/bash/fnm-many",
+        "startup/bash/nvm-nouse",
+        "process/fnm-ls",
+        "current/zsh/nvm",
+        "cd-switch/zsh/nvm",
+        "version/zsh/nvm",
+        "process/nvm-core-current",
+        "process/fnm-env",
+        "install/bash/nvm",
+        "cd-nochange/zsh/nvm",
+        "cd-nochange/bash/fast",
+        "current/bash/fast",
+        "cd-switch/bash/fnm",
+        "install/bash/fnm",
+        "process/nvm-core-version",
+        "ls-many/bash/fnm",
+        "current/zsh/fast",
+        "startup/zsh/fast",
+        "startup/bash/fast-autocd",
+        "use/zsh/nvm",
+        "startup/zsh/bare",
+        "cd-switch/bash/fast",
+        "cd-switch/zsh/fnm",
+        "cd-nochange/bash/nvm",
+        "process/true",
+        "version/zsh/fast",
+        "ls-many/zsh/fnm",
+        "cd-nochange/bash/fnm",
+        "startup/zsh/fast-many",
+        "use/zsh/fnm",
+        "current/bash/nvm",
+        "cd-nochange/zsh/fnm",
+        "startup/zsh/nvm-cd",
+        "startup/bash/nvm-cd",
+        "startup/zsh/fast-autocd",
+        "startup/bash/bare",
+        "process/nvm-core-ls",
+        "startup/bash/nvm-many",
+        "startup/bash/fast-many",
+        "startup/bash/fast-cd",
+        "use/bash/fast",
+        "use/zsh/fast",
+        "startup/zsh/fnm-many"
+      ],
+      "load_after": [
+        17.62,
+        20.88,
+        22.1
+      ]
+    },
+    {
+      "round": 1,
+      "load_before": [
+        17.62,
+        20.88,
+        22.1
+      ],
+      "order": [
+        "startup/bash/fnm-many",
+        "version/bash/nvm",
+        "ls-many/bash/nvm",
+        "cd-nochange/zsh/fast",
+        "ls-many/zsh/fast",
+        "process/nvm-core-ls",
+        "cd-nochange/zsh/fast-native",
+        "use/bash/fnm",
+        "startup/zsh/fnm",
+        "use/bash/fast",
+        "startup/bash/fast-nouse",
+        "cd-switch/bash/fnm",
+        "process/fnm-env",
+        "startup/zsh/nvm-nouse",
+        "process/nvm-core-auto-use",
+        "cd-nochange/bash/fnm",
+        "current/zsh/fnm",
+        "startup/bash/fast-cd",
+        "startup/zsh/fast-many",
+        "startup/zsh/fast-nouse",
+        "version/bash/fast",
+        "startup/zsh/fast",
+        "startup/bash/fnm",
+        "current/bash/fnm",
+        "process/true",
+        "version/zsh/nvm",
+        "cd-nochange/bash/fast-native",
+        "startup/zsh/fast-autocd",
+        "version/zsh/fast",
+        "install/bash/fnm",
+        "use/zsh/fast",
+        "cd-switch/zsh/fast",
+        "use/bash/nvm",
+        "startup/zsh/fnm-many",
+        "startup/bash/fast-autocd",
+        "cd-switch/bash/fast-native",
+        "startup/bash/nvm-many",
+        "startup/zsh/nvm-many",
+        "cd-switch/zsh/fnm",
+        "cd-nochange/zsh/nvm",
+        "ls-many/zsh/fnm",
+        "use/zsh/nvm",
+        "current/zsh/nvm",
+        "current/bash/nvm",
+        "startup/zsh/nvm",
+        "startup/bash/nvm",
+        "startup/zsh/fast-cd",
+        "cd-switch/zsh/fast-native",
+        "startup/bash/fast-many",
+        "cd-switch/bash/nvm",
+        "install/bash/nvm",
+        "install/bash/fast",
+        "current/zsh/fast",
+        "process/fnm-ls",
+        "startup/bash/nvm-nouse",
+        "current/bash/fast",
+        "startup/bash/nvm-cd",
+        "cd-switch/bash/fast",
+        "cd-switch/zsh/nvm",
+        "ls-many/zsh/nvm",
+        "cd-nochange/bash/nvm",
+        "startup/bash/fast",
+        "use/zsh/fnm",
+        "cd-nochange/zsh/fnm",
+        "process/nvm-core-current",
+        "ls-many/bash/fnm",
+        "cd-nochange/bash/fast",
+        "startup/zsh/bare",
+        "startup/zsh/nvm-cd",
+        "startup/bash/bare",
+        "ls-many/bash/fast",
+        "process/nvm-core-version"
+      ],
+      "load_after": [
+        32.45,
+        34.62,
+        28.47
+      ]
+    },
+    {
+      "round": 2,
+      "load_before": [
+        32.45,
+        34.62,
+        28.47
+      ],
+      "order": [
+        "startup/zsh/fast-many",
+        "use/bash/nvm",
+        "install/bash/fast",
+        "startup/zsh/nvm",
+        "current/zsh/fnm",
+        "use/bash/fast",
+        "cd-nochange/bash/fast-native",
+        "use/bash/fnm",
+        "cd-switch/bash/nvm",
+        "ls-many/zsh/fnm",
+        "cd-nochange/zsh/fnm",
+        "startup/zsh/fast",
+        "install/bash/fnm",
+        "startup/bash/nvm-many",
+        "startup/zsh/fast-autocd",
+        "ls-many/bash/fast",
+        "startup/bash/nvm-nouse",
+        "process/true",
+        "startup/zsh/fnm",
+        "cd-nochange/zsh/nvm",
+        "startup/zsh/nvm-cd",
+        "cd-switch/zsh/fnm",
+        "startup/bash/fnm",
+        "install/bash/nvm",
+        "startup/bash/bare",
+        "startup/bash/fast-cd",
+        "current/zsh/nvm",
+        "process/nvm-core-ls",
+        "version/zsh/fast",
+        "ls-many/bash/fnm",
+        "use/zsh/fnm",
+        "ls-many/bash/nvm",
+        "startup/bash/nvm-cd",
+        "version/bash/nvm",
+        "version/bash/fast",
+        "startup/zsh/nvm-nouse",
+        "startup/bash/fast-nouse",
+        "current/bash/fast",
+        "cd-nochange/bash/fast",
+        "process/nvm-core-version",
+        "cd-switch/zsh/fast",
+        "ls-many/zsh/fast",
+        "process/fnm-ls",
+        "use/zsh/fast",
+        "startup/zsh/fast-cd",
+        "startup/bash/fast-many",
+        "cd-switch/bash/fnm",
+        "startup/zsh/bare",
+        "version/zsh/nvm",
+        "process/nvm-core-current",
+        "current/bash/fnm",
+        "startup/bash/fnm-many",
+        "cd-nochange/bash/nvm",
+        "cd-switch/bash/fast-native",
+        "startup/bash/fast-autocd",
+        "startup/zsh/fnm-many",
+        "cd-nochange/bash/fnm",
+        "startup/zsh/fast-nouse",
+        "use/zsh/nvm",
+        "cd-switch/zsh/nvm",
+        "cd-switch/bash/fast",
+        "process/nvm-core-auto-use",
+        "startup/zsh/nvm-many",
+        "ls-many/zsh/nvm",
+        "cd-switch/zsh/fast-native",
+        "startup/bash/fast",
+        "startup/bash/nvm",
+        "current/bash/nvm",
+        "cd-nochange/zsh/fast",
+        "current/zsh/fast",
+        "process/fnm-env",
+        "cd-nochange/zsh/fast-native"
+      ],
+      "load_after": [
+        28.1,
+        24.62,
+        25.29
+      ]
+    }
+  ],
+  "finished": "2026-10-22T16:20:08+0200",
+  "load_after": [
+    28.1,
+    24.62,
+    25.29
+  ],
+  "noisy": true
+}
