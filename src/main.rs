@@ -31,7 +31,10 @@ impl Eval {
         self.vars.insert(k.to_string(), Some(v.to_string()));
         if self.shell == "fish" {
             let val = if k.ends_with("PATH") {
-                v.split(':').map(|p| format!("'{}'", p.replace('\\', "\\\\").replace('\'', "\\'"))).collect::<Vec<_>>().join(" ")
+                v.split(':')
+                    .map(|p| format!("'{}'", p.replace('\\', "\\\\").replace('\'', "\\'")))
+                    .collect::<Vec<_>>()
+                    .join(" ")
             } else {
                 format!("'{}'", v.replace('\\', "\\\\").replace('\'', "\\'"))
             };
@@ -42,7 +45,11 @@ impl Eval {
     }
     fn unset(&mut self, k: &str) {
         self.vars.insert(k.to_string(), None);
-        self.buf += &if self.shell == "fish" { format!("set -e {k}\n") } else { format!("unset {k}\n") };
+        self.buf += &if self.shell == "fish" {
+            format!("set -e {k}\n")
+        } else {
+            format!("unset {k}\n")
+        };
     }
     fn rehash(&mut self) {
         self.buf += match self.shell.as_str() {
@@ -62,13 +69,19 @@ struct Ctx {
 
 fn main() {
     let args: Vec<String> = env::args().skip(1).collect();
-    let nvm_dir = env::var("NVM_DIR").map(|d| d.trim_end_matches('/').to_string()).unwrap_or_else(|_| {
-        format!("{}/.nvm", env::var("HOME").unwrap_or_default())
-    });
+    let nvm_dir = env::var("NVM_DIR")
+        .map(|d| d.trim_end_matches('/').to_string())
+        .unwrap_or_else(|_| format!("{}/.nvm", env::var("HOME").unwrap_or_default()));
     let mut cx = Ctx {
         pal: colors::detect(&args),
-        st: Store { dir: PathBuf::from(&nvm_dir) },
-        ev: Eval { shell: env::var("NVM_SHELL").unwrap_or_else(|_| "bash".into()), buf: String::new(), vars: Default::default() },
+        st: Store {
+            dir: PathBuf::from(&nvm_dir),
+        },
+        ev: Eval {
+            shell: env::var("NVM_SHELL").unwrap_or_else(|_| "bash".into()),
+            buf: String::new(),
+            vars: Default::default(),
+        },
         nvm_dir,
     };
     let rc = run(&mut cx, &args);
@@ -80,7 +93,9 @@ fn main() {
 /// Writes queued shell statements to `$NVM_EVAL_FILE` (creating its directory), clears stale content when
 /// there is nothing to write, and prunes eval files of long-dead shells from `$NVM_DIR/.cache`.
 fn flush_eval(buf: &str) {
-    let Ok(f) = env::var("NVM_EVAL_FILE") else { return };
+    let Ok(f) = env::var("NVM_EVAL_FILE") else {
+        return;
+    };
     let path = std::path::Path::new(&f);
     if buf.is_empty() {
         if fs::metadata(path).map(|m| m.len() > 0).unwrap_or(false) {
@@ -94,7 +109,11 @@ fn flush_eval(buf: &str) {
             let day = std::time::Duration::from_secs(86_400);
             for e in fs::read_dir(d).into_iter().flatten().flatten() {
                 let stale = e.file_name().to_string_lossy().starts_with("eval.")
-                    && e.metadata().and_then(|m| m.modified()).ok().and_then(|t| t.elapsed().ok()).map_or(false, |a| a > day);
+                    && e.metadata()
+                        .and_then(|m| m.modified())
+                        .ok()
+                        .and_then(|t| t.elapsed().ok())
+                        .map_or(false, |a| a > day);
                 if stale {
                     let _ = fs::remove_file(e.path());
                 }
@@ -125,7 +144,10 @@ fn run(cx: &mut Ctx, args: &[String]) -> i32 {
             0
         }
         "current" => {
-            println!("{}", cx.st.ls_current(&env::var("PATH").unwrap_or_default()));
+            println!(
+                "{}",
+                cx.st.ls_current(&env::var("PATH").unwrap_or_default())
+            );
             0
         }
         "version" => cmd_version(cx, rest),
@@ -142,7 +164,8 @@ fn run(cx: &mut Ctx, args: &[String]) -> i32 {
             }
             Some("clear") => {
                 let c = cx.st.dir.join(".cache");
-                let ok = (!c.exists() || fs::remove_dir_all(&c).is_ok()) && fs::create_dir_all(&c).is_ok();
+                let ok = (!c.exists() || fs::remove_dir_all(&c).is_ok())
+                    && fs::create_dir_all(&c).is_ok();
                 if ok {
                     println!("nvm cache cleared.");
                     0
@@ -175,8 +198,12 @@ fn run(cx: &mut Ctx, args: &[String]) -> i32 {
             let a = rest.first().map(String::as_str).unwrap_or("");
             if !colors::valid_codes(a) {
                 eprint!("{HELP}");
-                if env::var("NVM_NO_COLORS").as_deref() == Ok("--no-colors") || args.iter().any(|x| x == "--no-colors") {
-                    eprintln!("\nPlease pass in five valid color codes. Choose from: rRgGbBcCyYmMkKeW");
+                if env::var("NVM_NO_COLORS").as_deref() == Ok("--no-colors")
+                    || args.iter().any(|x| x == "--no-colors")
+                {
+                    eprintln!(
+                        "\nPlease pass in five valid color codes. Choose from: rRgGbBcCyYmMkKeW"
+                    );
                 } else {
                     eprintln!("\x1b[1;37mPlease pass in five \x1b[1;31mvalid color codes\x1b[1;37m. Choose from: rRgGbBcCyYmMkKeW\x1b[0m");
                 }
@@ -184,16 +211,36 @@ fn run(cx: &mut Ctx, args: &[String]) -> i32 {
             }
             let c5: String = a.to_string();
             cx.ev.export("NVM_COLORS", &c5);
-            println!("Setting colors to: {}", c5.chars().map(String::from).collect::<Vec<_>>().join(" "));
+            println!(
+                "Setting colors to: {}",
+                c5.chars().map(String::from).collect::<Vec<_>>().join(" ")
+            );
             if cx.pal.is_none() {
-                println!("WARNING: Colors may not display because they are not supported in this shell.");
+                println!(
+                    "WARNING: Colors may not display because they are not supported in this shell."
+                );
             }
             0
         }
         "unload" => {
             let _ = cmd_deactivate(cx, &["--silent".to_string()]);
-            cx.ev.buf += &if cx.ev.shell == "fish" { "functions -e nvm\n".to_string() } else { "unset -f nvm nvm_find_up nvm_find_nvmrc nvm_ls_current nvm_version nvm_rc_version 2>/dev/null\n".to_string() };
-            for v in ["NVM_NODEJS_ORG_MIRROR", "NVM_IOJS_ORG_MIRROR", "NVM_DIR", "NVM_CD_FLAGS", "NVM_BIN", "NVM_INC", "NVM_MAKE_JOBS", "NVM_INSTALL_LOCK", "NVM_COLORS", "NVM_CORE"] {
+            cx.ev.buf += &if cx.ev.shell == "fish" {
+                "functions -e nvm\n".to_string()
+            } else {
+                "unset -f nvm nvm_find_up nvm_find_nvmrc nvm_ls_current nvm_version nvm_rc_version 2>/dev/null\n".to_string()
+            };
+            for v in [
+                "NVM_NODEJS_ORG_MIRROR",
+                "NVM_IOJS_ORG_MIRROR",
+                "NVM_DIR",
+                "NVM_CD_FLAGS",
+                "NVM_BIN",
+                "NVM_INC",
+                "NVM_MAKE_JOBS",
+                "NVM_INSTALL_LOCK",
+                "NVM_COLORS",
+                "NVM_CORE",
+            ] {
                 cx.ev.unset(v);
             }
             0
@@ -204,7 +251,11 @@ fn run(cx: &mut Ctx, args: &[String]) -> i32 {
                 return 127;
             }
             let cur = cx.st.ls_current(&env::var("PATH").unwrap_or_default());
-            let nv = if cur == "system" { system_node(cx).map(|x| x.1).unwrap_or_default() } else { cur.clone() };
+            let nv = if cur == "system" {
+                system_node(cx).map(|x| x.1).unwrap_or_default()
+            } else {
+                cur.clone()
+            };
             if cur == "none" {
                 println!("Attempting to upgrade to the latest working version of npm...");
                 println!("Detected node version none, npm version v");
@@ -245,7 +296,9 @@ fn run(cx: &mut Ctx, args: &[String]) -> i32 {
         "__ls" => cmd_raw_ls(cx, rest),
         "exec-internal" => cmd_exec_internal(cx, rest),
         "__rcversion" => {
-            let Some(f) = find_nvmrc(&env::current_dir().unwrap_or_default()) else { return 1 };
+            let Some(f) = find_nvmrc(&env::current_dir().unwrap_or_default()) else {
+                return 1;
+            };
             match parse_nvmrc(&fs::read_to_string(&f).unwrap_or_default()) {
                 Ok(v) => {
                     println!("{}\n{v}", f.display());
@@ -394,7 +447,11 @@ fn cmd_which(cx: &mut Ctx, rest: &[String]) -> i32 {
         Err(c) => return c,
     };
     // literal `system` is special; a `system` read from .nvmrc goes through version() like any other pattern
-    let ver: Result<String, &str> = if pat == "system" && !from_rc { Ok("system".into()) } else { cx.st.version(&pat) };
+    let ver: Result<String, &str> = if pat == "system" && !from_rc {
+        Ok("system".into())
+    } else {
+        cx.st.version(&pat)
+    };
     match ver {
         Ok(v) if v == "system" => match system_node(cx) {
             Some((p, _)) => {
@@ -431,7 +488,12 @@ fn system_node(cx: &Ctx) -> Option<(String, String)> {
     for d in clean.split(':') {
         let n = std::path::Path::new(d).join("node");
         if n.is_file() {
-            let v = Command::new(&n).arg("--version").output().ok().map(|o| String::from_utf8_lossy(&o.stdout).trim().to_string()).unwrap_or_default();
+            let v = Command::new(&n)
+                .arg("--version")
+                .output()
+                .ok()
+                .map(|o| String::from_utf8_lossy(&o.stdout).trim().to_string())
+                .unwrap_or_default();
             return Some((n.to_string_lossy().into_owned(), v));
         }
     }
@@ -461,20 +523,27 @@ fn cmd_use(cx: &mut Ctx, rest: &[String]) -> i32 {
             }
         }
     }
-    let positional = rest.iter().any(|a| !a.starts_with("--") && a != "-w" && !a.is_empty());
+    let positional = rest
+        .iter()
+        .any(|a| !a.starts_with("--") && a != "-w" && !a.is_empty());
     // VERSION and the string the user provided (for messages)
-    let (pat, from_rc, ver): (String, bool, Result<String, &'static str>) = if let Some(n) = lts.clone() {
-        let p = format!("lts/{n}");
-        let v = match_version(cx, &p);
-        (p, false, v)
-    } else {
-        let (p, rc) = match pick_pattern(rest, silent, false) {
-            Ok(x) => x,
-            Err(c) => return c,
+    let (pat, from_rc, ver): (String, bool, Result<String, &'static str>) =
+        if let Some(n) = lts.clone() {
+            let p = format!("lts/{n}");
+            let v = match_version(cx, &p);
+            (p, false, v)
+        } else {
+            let (p, rc) = match pick_pattern(rest, silent, false) {
+                Ok(x) => x,
+                Err(c) => return c,
+            };
+            let v = if rc {
+                cx.st.version(&p)
+            } else {
+                match_version(cx, &p)
+            };
+            (p, rc, v)
         };
-        let v = if rc { cx.st.version(&p) } else { match_version(cx, &p) };
-        (p, rc, v)
-    };
     if !guard(&pat) {
         eprintln!("invalid version: {pat}");
         return 3;
@@ -512,7 +581,14 @@ fn cmd_use(cx: &mut Ctx, rest: &[String]) -> i32 {
             let np = pathedit::strip_path(&path, "/bin", &cx.nvm_dir);
             let _ = cmd_deactivate(cx, &["--silent".to_string()]);
             if !silent {
-                let npm = Command::new("npm").arg("--version").env("PATH", &np).output().ok().filter(|o| o.status.success()).map(|o| format!(" (npm v{})", String::from_utf8_lossy(&o.stdout).trim())).unwrap_or_default();
+                let npm = Command::new("npm")
+                    .arg("--version")
+                    .env("PATH", &np)
+                    .output()
+                    .ok()
+                    .filter(|o| o.status.success())
+                    .map(|o| format!(" (npm v{})", String::from_utf8_lossy(&o.stdout).trim()))
+                    .unwrap_or_default();
                 println!("Now using system version of node: {sv}{npm}");
             }
             0
@@ -540,9 +616,17 @@ fn cmd_use(cx: &mut Ctx, rest: &[String]) -> i32 {
             }
             let vd = cx.st.version_dir(&v).to_string_lossy().into_owned();
             let path = cx.ev.get("PATH").unwrap_or_default();
-            cx.ev.export("PATH", &pathedit::change_path(&path, "/bin", &vd, &cx.nvm_dir));
+            cx.ev.export(
+                "PATH",
+                &pathedit::change_path(&path, "/bin", &vd, &cx.nvm_dir),
+            );
             if has_manpath() {
-                let mut m = pathedit::change_path(&cx.ev.get("MANPATH").unwrap_or_default(), "/share/man", &vd, &cx.nvm_dir);
+                let mut m = pathedit::change_path(
+                    &cx.ev.get("MANPATH").unwrap_or_default(),
+                    "/share/man",
+                    &vd,
+                    &cx.nvm_dir,
+                );
                 if !(m.starts_with(':') || m.contains("::") || m.ends_with(':')) {
                     m.push(':');
                 }
@@ -613,7 +697,10 @@ fn cmd_deactivate(cx: &mut Ctx, rest: &[String]) -> i32 {
         if nn != n {
             cx.ev.export("NODE_PATH", &nn);
             if !silent {
-                println!("{}/*/lib/node_modules removed from ${{NODE_PATH}}", cx.nvm_dir);
+                println!(
+                    "{}/*/lib/node_modules removed from ${{NODE_PATH}}",
+                    cx.nvm_dir
+                );
             }
         }
     }
@@ -635,14 +722,26 @@ fn sanitize(cx: &Ctx, p: &str) -> String {
 }
 
 fn npmrc_bad(p: &std::path::Path) -> bool {
-    fs::read_to_string(p).map(|t| t.lines().any(|l| {
-        let k = l.split('=').next().unwrap_or("");
-        (l.contains('=')) && matches!(k.trim_end_matches(' '), "prefix" | "globalconfig") && l.starts_with(k)
-    })).unwrap_or(false)
+    fs::read_to_string(p)
+        .map(|t| {
+            t.lines().any(|l| {
+                let k = l.split('=').next().unwrap_or("");
+                (l.contains('='))
+                    && matches!(k.trim_end_matches(' '), "prefix" | "globalconfig")
+                    && l.starts_with(k)
+            })
+        })
+        .unwrap_or(false)
 }
 
 /// §5.4. Err(rc) is the helper's code (3, 4, 10); `use` turns any failure into 11.
-fn die_on_prefix(cx: &mut Ctx, delete: bool, cmd: &str, vd: &str, silent_use: bool) -> Result<(), i32> {
+fn die_on_prefix(
+    cx: &mut Ctx,
+    delete: bool,
+    cmd: &str,
+    vd: &str,
+    silent_use: bool,
+) -> Result<(), i32> {
     let _ = silent_use;
     if let Ok(pre) = env::var("PREFIX") {
         if !pre.is_empty() && pre != vd {
@@ -666,7 +765,11 @@ fn die_on_prefix(cx: &mut Ctx, delete: bool, cmd: &str, vd: &str, silent_use: bo
     };
     let home_rc = format!("{}/.npmrc", env::var("HOME").unwrap_or_default());
     let mut project = env::current_dir().unwrap_or_default();
-    while project.as_os_str() != "" && project.to_string_lossy() != "." && !project.join("package.json").is_file() && !project.join("node_modules").is_dir() {
+    while project.as_os_str() != ""
+        && project.to_string_lossy() != "."
+        && !project.join("package.json").is_file()
+        && !project.join("node_modules").is_dir()
+    {
         match project.parent() {
             Some(p) if p != project => project = p.to_path_buf(),
             _ => {
@@ -677,7 +780,11 @@ fn die_on_prefix(cx: &mut Ctx, delete: bool, cmd: &str, vd: &str, silent_use: bo
     }
     let project_rc = format!("{}/.npmrc", project.display());
     let checks: [(&str, String, Vec<Vec<String>>); 4] = [
-        ("builtin npmrc", format!("{vd}/lib/node_modules/npm/npmrc"), vec![]),
+        (
+            "builtin npmrc",
+            format!("{vd}/lib/node_modules/npm/npmrc"),
+            vec![],
+        ),
         ("global npmrc", format!("{vd}/etc/npmrc"), vec![]),
         ("user’s .npmrc", home_rc, vec![]),
         ("project npmrc", project_rc, vec![]),
@@ -695,7 +802,13 @@ fn die_on_prefix(cx: &mut Ctx, delete: bool, cmd: &str, vd: &str, silent_use: bo
                 }
                 1 => {
                     run_npm(&["config", "--global", "--loglevel=warn", "delete", "prefix"]);
-                    run_npm(&["config", "--global", "--loglevel=warn", "delete", "globalconfig"]);
+                    run_npm(&[
+                        "config",
+                        "--global",
+                        "--loglevel=warn",
+                        "delete",
+                        "globalconfig",
+                    ]);
                 }
                 _ => {
                     run_npm(&["config", "--loglevel=warn", "delete", "prefix"]);
@@ -711,7 +824,10 @@ fn die_on_prefix(cx: &mut Ctx, delete: bool, cmd: &str, vd: &str, silent_use: bo
 }
 
 fn has_manpath() -> bool {
-    env::var("PATH").unwrap_or_default().split(':').any(|d| std::path::Path::new(d).join("manpath").is_file())
+    env::var("PATH")
+        .unwrap_or_default()
+        .split(':')
+        .any(|d| std::path::Path::new(d).join("manpath").is_file())
 }
 fn builtin(n: &str) -> bool {
     matches!(n, "stable" | "unstable" | "iojs" | "node" | "system")
@@ -828,19 +944,55 @@ fn alias_line(cx: &Ctx, name: &str, dest: &str, implicit: bool) -> String {
         }
     };
     let colour = cx.pal.is_some();
-    let arrow = colors::paint(&cx.pal.as_ref().map(|_| colors::Pal(["0;90".into(), String::new(), String::new(), String::new(), String::new(), String::new()])), 1, "->");
+    let arrow = colors::paint(
+        &cx.pal.as_ref().map(|_| {
+            colors::Pal([
+                "0;90".into(),
+                String::new(),
+                String::new(),
+                String::new(),
+                String::new(),
+                String::new(),
+            ])
+        }),
+        1,
+        "->",
+    );
     let arrow = if colour { arrow } else { "->".into() };
-    let name_c = if name.starts_with("lts/") { 6 } else { status(&resolved) };
-    let dest_c = if dest.starts_with("lts/") { 6 } else { status(&resolved) };
-    let star = if !colour && cx.st.is_installed(&resolved) { " *" } else { "" };
-    let mut out = format!("{} {arrow} {}", colors::paint(&cx.pal, name_c, name), colors::paint(&cx.pal, dest_c, dest));
+    let name_c = if name.starts_with("lts/") {
+        6
+    } else {
+        status(&resolved)
+    };
+    let dest_c = if dest.starts_with("lts/") {
+        6
+    } else {
+        status(&resolved)
+    };
+    let star = if !colour && cx.st.is_installed(&resolved) {
+        " *"
+    } else {
+        ""
+    };
+    let mut out = format!(
+        "{} {arrow} {}",
+        colors::paint(&cx.pal, name_c, name),
+        colors::paint(&cx.pal, dest_c, dest)
+    );
     if resolved == dest {
         out += star;
     } else {
-        out += &format!(" ({arrow} {}{star})", colors::paint(&cx.pal, status(&resolved), &resolved));
+        out += &format!(
+            " ({arrow} {}{star})",
+            colors::paint(&cx.pal, status(&resolved), &resolved)
+        );
     }
     if implicit {
-        out += &if colour { format!(" {}", colors::paint(&cx.pal, 5, "(default)")) } else { " (default)".to_string() };
+        out += &if colour {
+            format!(" {}", colors::paint(&cx.pal, 5, "(default)"))
+        } else {
+            " (default)".to_string()
+        };
     }
     out
 }
@@ -851,7 +1003,11 @@ fn print_alias(cx: &Ctx, name: &str, dest: &str) {
 fn walk_aliases(dir: &std::path::Path, prefix: &str, out: &mut Vec<String>) {
     for e in fs::read_dir(dir).into_iter().flatten().flatten() {
         let n = e.file_name().to_string_lossy().into_owned();
-        let full = if prefix.is_empty() { n.clone() } else { format!("{prefix}/{n}") };
+        let full = if prefix.is_empty() {
+            n.clone()
+        } else {
+            format!("{prefix}/{n}")
+        };
         if e.path().is_dir() {
             // upstream lists only top-level files and the `lts/` directory
             if prefix.is_empty() && n == "lts" {
@@ -870,7 +1026,10 @@ fn list_aliases(cx: &Ctx, pat: Option<&str>) {
     let p = pat.unwrap_or("");
     let (lts, user): (Vec<_>, Vec<_>) = names.into_iter().partition(|n| n.starts_with("lts/"));
     let user: Vec<String> = user.into_iter().filter(|n| n.starts_with(p)).collect();
-    let lts: Vec<String> = lts.into_iter().filter(|n| n["lts/".len()..].starts_with(p)).collect();
+    let lts: Vec<String> = lts
+        .into_iter()
+        .filter(|n| n["lts/".len()..].starts_with(p))
+        .collect();
     for n in &user {
         if let Some(t) = cx.st.read_alias(n) {
             print_alias(cx, n, &t);
@@ -895,9 +1054,32 @@ fn list_aliases(cx: &Ctx, pat: Option<&str>) {
         match val {
             None => {
                 let c = cx.pal.is_some();
-                let arrow = if c { colors::paint(&Some(colors::Pal(["0;90".into(), String::new(), String::new(), String::new(), String::new(), String::new()])), 1, "->") } else { "->".into() };
-                let tail = if c { colors::paint(&cx.pal, 5, "(default)") } else { "(default)".into() };
-                lines.borrow_mut().push(format!("{} {arrow} {} {tail}", colors::paint(&cx.pal, 4, name), colors::paint(&cx.pal, 4, "N/A")));
+                let arrow = if c {
+                    colors::paint(
+                        &Some(colors::Pal([
+                            "0;90".into(),
+                            String::new(),
+                            String::new(),
+                            String::new(),
+                            String::new(),
+                            String::new(),
+                        ])),
+                        1,
+                        "->",
+                    )
+                } else {
+                    "->".into()
+                };
+                let tail = if c {
+                    colors::paint(&cx.pal, 5, "(default)")
+                } else {
+                    "(default)".into()
+                };
+                lines.borrow_mut().push(format!(
+                    "{} {arrow} {} {tail}",
+                    colors::paint(&cx.pal, 4, name),
+                    colors::paint(&cx.pal, 4, "N/A")
+                ));
             }
             Some(d) => lines.borrow_mut().push(alias_line(cx, name, &d, true)),
         }
@@ -937,7 +1119,9 @@ fn cmd_ls(cx: &mut Ctx, rest: &[String]) -> i32 {
                 eprintln!("`--no-alias` is not supported when a pattern is provided.");
                 return 55;
             }
-            let numeric = p.trim_start_matches('v').starts_with(|c: char| c.is_ascii_digit());
+            let numeric = p
+                .trim_start_matches('v')
+                .starts_with(|c: char| c.is_ascii_digit());
             if !numeric {
                 match cx.st.version(p) {
                     Ok(v) if cx.st.is_installed(&v) => vec![v],
@@ -945,18 +1129,47 @@ fn cmd_ls(cx: &mut Ctx, rest: &[String]) -> i32 {
                 }
             } else {
                 let pfx = format!("{}.", ensure_v(p).trim_end_matches('.'));
-                cx.st.installed().into_iter().map(|x| x.1).filter(|n| format!("{n}.").starts_with(&pfx) || *n == ensure_v(p)).collect()
+                cx.st
+                    .installed()
+                    .into_iter()
+                    .map(|x| x.1)
+                    .filter(|n| format!("{n}.").starts_with(&pfx) || *n == ensure_v(p))
+                    .collect()
             }
         }
         None => cx.st.installed().into_iter().map(|x| x.1).collect(),
     };
     let want_system = pat.map_or(true, |p| p == "system") && cx.st.system_node().is_some();
-    let list: Vec<String> = if pat.map_or(false, |p| p == "system") { vec![] } else { list };
+    let list: Vec<String> = if pat.map_or(false, |p| p == "system") {
+        vec![]
+    } else {
+        list
+    };
     let sys_row = |cx: &Ctx| {
         let sv = cx.st.system_version().unwrap_or_default();
-        let txt = if cur == "system" { format!("->{:>13}", "system") } else { format!("{:>15}", "system") };
+        let txt = if cur == "system" {
+            format!("->{:>13}", "system")
+        } else {
+            format!("{:>15}", "system")
+        };
         if cx.pal.is_some() {
-            format!("{} ({} {})", colors::paint(&cx.pal, if cur == "system" { 3 } else { 2 }, &txt), colors::paint(&Some(colors::Pal(["0;90".into(), String::new(), String::new(), String::new(), String::new(), String::new()])), 1, "->"), colors::paint(&cx.pal, 2, &sv))
+            format!(
+                "{} ({} {})",
+                colors::paint(&cx.pal, if cur == "system" { 3 } else { 2 }, &txt),
+                colors::paint(
+                    &Some(colors::Pal([
+                        "0;90".into(),
+                        String::new(),
+                        String::new(),
+                        String::new(),
+                        String::new(),
+                        String::new()
+                    ])),
+                    1,
+                    "->"
+                ),
+                colors::paint(&cx.pal, 2, &sv)
+            )
         } else {
             format!("{txt} * (-> {sv})")
         }
@@ -980,7 +1193,11 @@ fn cmd_ls(cx: &mut Ctx, rest: &[String]) -> i32 {
         return 3;
     }
     for v in &list {
-        let (txt, ci) = if *v == cur { (format!("->{v:>13}"), 3) } else { (format!("{v:>15}"), 1) };
+        let (txt, ci) = if *v == cur {
+            (format!("->{v:>13}"), 3)
+        } else {
+            (format!("{v:>15}"), 1)
+        };
         if cx.pal.is_some() {
             println!("{}", colors::paint(&cx.pal, ci, &txt));
         } else {
@@ -1002,7 +1219,9 @@ fn cmd_auto(cx: &mut Ctx, rest: &[String]) -> i32 {
     let path = env::var("PATH").unwrap_or_default();
     let cur = cx.st.ls_current(&path);
     let nvmrc = |_cx: &Ctx| {
-        find_nvmrc(&env::current_dir().unwrap_or_default()).and_then(|f| fs::read_to_string(f).ok()).and_then(|c| parse_nvmrc(&c).ok())
+        find_nvmrc(&env::current_dir().unwrap_or_default())
+            .and_then(|f| fs::read_to_string(f).ok())
+            .and_then(|c| parse_nvmrc(&c).ok())
     };
     match rest.first().map(String::as_str) {
         Some("use") => {
@@ -1026,7 +1245,9 @@ fn cmd_auto(cx: &mut Ctx, rest: &[String]) -> i32 {
         }
         Some("cd") => {
             let want = nvmrc(cx).unwrap_or_else(|| "default".into());
-            let Ok(target) = cx.st.version(&want) else { return 0 };
+            let Ok(target) = cx.st.version(&want) else {
+                return 0;
+            };
             if !cx.st.is_installed(&target) {
                 return 0;
             }
@@ -1038,7 +1259,14 @@ fn cmd_auto(cx: &mut Ctx, rest: &[String]) -> i32 {
         Some("install") => {
             let def = cx.st.read_alias("default");
             match def {
-                Some(d) if cx.st.version(&d).is_ok() || d.chars().next().map_or(false, |c| c.is_ascii_digit() || c == 'v') => cmd_install(cx, &[d]),
+                Some(d)
+                    if cx.st.version(&d).is_ok()
+                        || d.chars()
+                            .next()
+                            .map_or(false, |c| c.is_ascii_digit() || c == 'v') =>
+                {
+                    cmd_install(cx, &[d])
+                }
                 _ => {
                     if nvmrc(cx).is_some() {
                         cmd_install(cx, &[])
@@ -1059,7 +1287,9 @@ fn cmd_auto(cx: &mut Ctx, rest: &[String]) -> i32 {
 fn cmd_raw_ls(cx: &mut Ctx, rest: &[String]) -> i32 {
     let pat = rest.first().map(|p| ensure_v(p));
     for (_, n) in cx.st.installed() {
-        if pat.as_ref().map_or(true, |p| format!("{n}.").starts_with(&format!("{}.", p.trim_end_matches('.')))) {
+        if pat.as_ref().map_or(true, |p| {
+            format!("{n}.").starts_with(&format!("{}.", p.trim_end_matches('.')))
+        }) {
             println!("{n}");
         }
     }
@@ -1077,7 +1307,9 @@ fn cmd_exec_internal(cx: &mut Ctx, rest: &[String]) -> i32 {
             }
         },
         None => {
-            let rc = find_nvmrc(&env::current_dir().unwrap_or_default()).and_then(|f| fs::read_to_string(f).ok()).and_then(|c| parse_nvmrc(&c).ok());
+            let rc = find_nvmrc(&env::current_dir().unwrap_or_default())
+                .and_then(|f| fs::read_to_string(f).ok())
+                .and_then(|c| parse_nvmrc(&c).ok());
             match rc {
                 Some(v) => match cx.st.version(&v) {
                     Ok(r) if cx.st.is_installed(&r) => Ok(r),
@@ -1147,10 +1379,15 @@ fn cmd_ls_remote(cx: &mut Ctx, rest: &[String]) -> i32 {
     }
     let cur = cx.st.ls_current(&env::var("PATH").unwrap_or_default());
     let node_alias = pat.as_deref() == Some("node");
-    let sel = remote::filter(&rows, lts.as_deref(), if node_alias { None } else { pat.as_deref() });
+    let sel = remote::filter(
+        &rows,
+        lts.as_deref(),
+        if node_alias { None } else { pat.as_deref() },
+    );
 
     if sel.is_empty() {
-        let star = cx.pal.is_none() && lts.is_none() && pat.as_deref().map_or(false, valid_versionish);
+        let star =
+            cx.pal.is_none() && lts.is_none() && pat.as_deref().map_or(false, valid_versionish);
         println!("{:>15}{}", "N/A", if star { " *" } else { "" });
         return 3;
     }
@@ -1190,7 +1427,12 @@ fn cmd_version_remote(cx: &mut Ctx, rest: &[String]) -> i32 {
         Ok(r) => r,
         Err(c) => return c,
     };
-    match remote::resolve(&cx.st, &rows, pat.as_deref().unwrap_or("node"), lts.as_deref()) {
+    match remote::resolve(
+        &cx.st,
+        &rows,
+        pat.as_deref().unwrap_or("node"),
+        lts.as_deref(),
+    ) {
         Some(r) => {
             println!("{}", r.ver);
             0
@@ -1203,7 +1445,10 @@ fn cmd_version_remote(cx: &mut Ctx, rest: &[String]) -> i32 {
 }
 
 fn npm_ver_suffix(cx: &Ctx, v: &str) -> String {
-    cx.st.npm_version(v).map(|n| format!(" (npm v{n})")).unwrap_or_default()
+    cx.st
+        .npm_version(v)
+        .map(|n| format!(" (npm v{n})"))
+        .unwrap_or_default()
 }
 
 fn cmd_install(cx: &mut Ctx, rest: &[String]) -> i32 {
@@ -1221,17 +1466,31 @@ fn cmd_install(cx: &mut Ctx, rest: &[String]) -> i32 {
     for a in rest {
         match a.as_str() {
             "--reinstall-packages-from" | "--copy-packages-from" => {
-                eprintln!("If {a} is provided, it must point to an installed version of node using `=`.");
+                eprintln!(
+                    "If {a} is provided, it must point to an installed version of node using `=`."
+                );
                 return 6;
             }
-            x if x.starts_with("--reinstall-packages-from=") || x.starts_with("--copy-packages-from=") => {
+            x if x.starts_with("--reinstall-packages-from=")
+                || x.starts_with("--copy-packages-from=") =>
+            {
                 if reinstall_from.is_some() {
-                    eprintln!("--reinstall-packages-from may not be provided more than once{}", if x.starts_with("--copy") { ", or combined with `--copy-packages-from`" } else { "" });
+                    eprintln!(
+                        "--reinstall-packages-from may not be provided more than once{}",
+                        if x.starts_with("--copy") {
+                            ", or combined with `--copy-packages-from`"
+                        } else {
+                            ""
+                        }
+                    );
                     return 6;
                 }
                 let val = x.split_once('=').unwrap().1.to_string();
                 if val.is_empty() {
-                    eprintln!("If {} is provided, it must point to an installed version of node.", x.split_once('=').unwrap().0);
+                    eprintln!(
+                        "If {} is provided, it must point to an installed version of node.",
+                        x.split_once('=').unwrap().0
+                    );
                     return 6;
                 }
                 reinstall_from = Some(val);
@@ -1251,7 +1510,9 @@ fn cmd_install(cx: &mut Ctx, rest: &[String]) -> i32 {
             "--offline" => passthru.push(a.clone()),
             "-b" => bin_only = true,
             "-s" => src_only = true,
-            x if x.starts_with("--lts=") => flags_lts = Some(x[6..].to_string()).filter(|n| !n.is_empty()),
+            x if x.starts_with("--lts=") => {
+                flags_lts = Some(x[6..].to_string()).filter(|n| !n.is_empty())
+            }
             x if x.starts_with("--alias=") => {
                 if alias.is_some() || set_default {
                     eprintln!("--default and --alias are mutually exclusive, and may not be provided more than once");
@@ -1273,7 +1534,9 @@ fn cmd_install(cx: &mut Ctx, rest: &[String]) -> i32 {
         return 6;
     }
     if set_default && alias.is_some() {
-        eprintln!("--default and --alias are mutually exclusive, and may not be provided more than once");
+        eprintln!(
+            "--default and --alias are mutually exclusive, and may not be provided more than once"
+        );
         return 6;
     }
     let mut from_rc = false;
@@ -1293,7 +1556,11 @@ fn cmd_install(cx: &mut Ctx, rest: &[String]) -> i32 {
             None => {
                 let cwd = env::current_dir().unwrap_or_default();
                 let rcf = find_nvmrc(&cwd);
-                match rcf.clone().and_then(|f| fs::read_to_string(f).ok()).map(|c| parse_nvmrc(&c)) {
+                match rcf
+                    .clone()
+                    .and_then(|f| fs::read_to_string(f).ok())
+                    .map(|c| parse_nvmrc(&c))
+                {
                     Some(Ok(v)) => {
                         println!("Found '{}' with version <{v}>", rcf.unwrap().display());
                         version = Some(v);
@@ -1338,7 +1605,12 @@ fn cmd_install(cx: &mut Ctx, rest: &[String]) -> i32 {
             Err(_) => {
                 let p = ensure_v(&pat);
                 let pfx = format!("{}.", p.trim_end_matches('.'));
-                cx.st.cached().into_iter().rev().map(|x| x.1).find(|n| format!("{n}.").starts_with(&pfx))
+                cx.st
+                    .cached()
+                    .into_iter()
+                    .rev()
+                    .map(|x| x.1)
+                    .find(|n| format!("{n}.").starts_with(&pfx))
             }
         }
     } else {
@@ -1346,7 +1618,13 @@ fn cmd_install(cx: &mut Ctx, rest: &[String]) -> i32 {
             Ok(r) => r,
             Err(c) => return c,
         };
-        remote::resolve(&cx.st, &rows, version.as_deref().unwrap_or("node"), lts_for_resolve.as_deref()).map(|r| r.ver.clone())
+        remote::resolve(
+            &cx.st,
+            &rows,
+            version.as_deref().unwrap_or("node"),
+            lts_for_resolve.as_deref(),
+        )
+        .map(|r| r.ver.clone())
     };
     let Some(ver) = chosen else {
         let (f1, f2) = match &flags_lts {
@@ -1361,7 +1639,13 @@ fn cmd_install(cx: &mut Ctx, rest: &[String]) -> i32 {
         }
         return 3;
     };
-    let typed = version.clone().unwrap_or_else(|| if flags_lts.as_deref() == Some("*") { "lts/*".into() } else { format!("lts/{}", flags_lts.clone().unwrap_or_default()) });
+    let typed = version.clone().unwrap_or_else(|| {
+        if flags_lts.as_deref() == Some("*") {
+            "lts/*".into()
+        } else {
+            format!("lts/{}", flags_lts.clone().unwrap_or_default())
+        }
+    });
 
     if let Some(p) = &reinstall_from {
         match cx.st.version(p) {
@@ -1388,7 +1672,15 @@ fn cmd_install(cx: &mut Ctx, rest: &[String]) -> i32 {
             if !hook.is_empty() {
                 println!("** $NVM_INSTALL_THIRD_PARTY_HOOK env var set; dispatching to third-party installation method **");
                 let vd = cx.st.version_dir(&ver);
-                let st = Command::new(&hook).args([ver.as_str(), "node", "std", if src_only { "source" } else { "binary" }]).arg(&vd).status();
+                let st = Command::new(&hook)
+                    .args([
+                        ver.as_str(),
+                        "node",
+                        "std",
+                        if src_only { "source" } else { "binary" },
+                    ])
+                    .arg(&vd)
+                    .status();
                 let code = st.ok().and_then(|s| s.code()).unwrap_or(1);
                 if code != 0 {
                     eprintln!("*** Third-party $NVM_INSTALL_THIRD_PARTY_HOOK env var failed to install! ***");
@@ -1402,27 +1694,30 @@ fn cmd_install(cx: &mut Ctx, rest: &[String]) -> i32 {
             }
         }
         if !hooked {
-        let _lock = match InstallLock::acquire(cx, &ver) {
-            Ok(l) => l,
-            Err(c) => return c,
-        };
-        println!("Downloading and installing node {ver}...");
-        let mut cmd = Command::new(remote::fetch_bin());
-        cmd.args(["install", &remote::mirror(), &ver, &cx.nvm_dir]).args(&passthru);
-        let st = cmd.status();
-        let code = st.ok().and_then(|s| s.code()).unwrap_or(1);
-        if code != 0 {
-            if bin_only {
-                eprintln!("Binary download failed. Download from source aborted.");
-                return 2;
+            let _lock = match InstallLock::acquire(cx, &ver) {
+                Ok(l) => l,
+                Err(c) => return c,
+            };
+            println!("Downloading and installing node {ver}...");
+            let mut cmd = Command::new(remote::fetch_bin());
+            cmd.args(["install", &remote::mirror(), &ver, &cx.nvm_dir])
+                .args(&passthru);
+            let st = cmd.status();
+            let code = st.ok().and_then(|s| s.code()).unwrap_or(1);
+            if code != 0 {
+                if bin_only {
+                    eprintln!("Binary download failed. Download from source aborted.");
+                    return 2;
+                }
+                eprintln!("Binary download failed, trying source.");
+                eprintln!("Source builds are not supported by this build of nvm.");
+                return code;
             }
-            eprintln!("Binary download failed, trying source.");
-            eprintln!("Source builds are not supported by this build of nvm.");
-            return code;
-        }
         }
         if !valid(cx) {
-            eprintln!("The install of {ver} reported success but failed verification; not activating it.");
+            eprintln!(
+                "The install of {ver} reported success but failed verification; not activating it."
+            );
             return 1;
         }
     }
@@ -1472,7 +1767,10 @@ fn cmd_install(cx: &mut Ctx, rest: &[String]) -> i32 {
         print_alias(cx, "default", &typed);
     }
     if save {
-        let _ = fs::write(env::current_dir().unwrap_or_default().join(".nvmrc"), format!("{ver}\n"));
+        let _ = fs::write(
+            env::current_dir().unwrap_or_default().join(".nvmrc"),
+            format!("{ver}\n"),
+        );
         println!("Wrote version number ({ver}) to .nvmrc");
     }
     if let Some(a) = alias {
@@ -1498,8 +1796,19 @@ fn cmd_uninstall(cx: &mut Ctx, rest: &[String]) -> i32 {
             return 127;
         }
     };
-    let arg = if lts.is_some() && pat.is_none() { arg } else { pat.clone().unwrap_or(arg) };
-    let shown = if pat.is_none() { rest.iter().find(|a| a.starts_with("--lts")).cloned().unwrap_or_else(|| arg.clone()) } else { arg.clone() };
+    let arg = if lts.is_some() && pat.is_none() {
+        arg
+    } else {
+        pat.clone().unwrap_or(arg)
+    };
+    let shown = if pat.is_none() {
+        rest.iter()
+            .find(|a| a.starts_with("--lts"))
+            .cloned()
+            .unwrap_or_else(|| arg.clone())
+    } else {
+        arg.clone()
+    };
     let ver = match cx.st.version(&arg) {
         Ok(v) => v,
         Err(_) => {
@@ -1512,7 +1821,9 @@ fn cmd_uninstall(cx: &mut Ctx, rest: &[String]) -> i32 {
         return 0;
     }
     if cx.st.ls_current(&env::var("PATH").unwrap_or_default()) == ver {
-        eprintln!("nvm: Cannot uninstall currently-active node version, {ver} (inferred from {arg}).");
+        eprintln!(
+            "nvm: Cannot uninstall currently-active node version, {ver} (inferred from {arg})."
+        );
         return 1;
     }
     let _ = fs::remove_dir_all(cx.st.version_dir(&ver));
@@ -1521,7 +1832,10 @@ fn cmd_uninstall(cx: &mut Ctx, rest: &[String]) -> i32 {
     }
     if let Ok(rd) = fs::read_dir(cx.st.dir.join(".cache/bin")) {
         for e in rd.flatten() {
-            if e.file_name().to_string_lossy().starts_with(&format!("node-{ver}-")) {
+            if e.file_name()
+                .to_string_lossy()
+                .starts_with(&format!("node-{ver}-"))
+            {
                 let _ = fs::remove_dir_all(e.path().join("files"));
             }
         }
@@ -1531,7 +1845,10 @@ fn cmd_uninstall(cx: &mut Ctx, rest: &[String]) -> i32 {
     walk_aliases(&cx.st.dir.join("alias"), "", &mut names);
     names.sort();
     for n in names {
-        if fs::read_to_string(cx.st.alias_path(&n)).map(|c| c.contains(&ver)).unwrap_or(false) {
+        if fs::read_to_string(cx.st.alias_path(&n))
+            .map(|c| c.contains(&ver))
+            .unwrap_or(false)
+        {
             cmd_unalias(cx, &[n]);
         }
     }
@@ -1546,7 +1863,11 @@ fn valid_versionish(s: &str) -> bool {
     let s = s.strip_prefix("iojs-").unwrap_or(s);
     let s = s.strip_prefix('v').unwrap_or(s).trim_end_matches('.');
     let parts: Vec<&str> = s.split('.').collect();
-    !s.is_empty() && parts.len() <= 3 && parts.iter().all(|p| !p.is_empty() && p.chars().all(|c| c.is_ascii_digit()))
+    !s.is_empty()
+        && parts.len() <= 3
+        && parts
+            .iter()
+            .all(|p| !p.is_empty() && p.chars().all(|c| c.is_ascii_digit()))
 }
 
 fn warn_fallback(cmd: &str) {
@@ -1639,8 +1960,19 @@ fn run_with(cx: &Ctx, ver: &str, cmd: &[String]) -> i32 {
         return 0;
     }
     let vd = cx.st.version_dir(ver).to_string_lossy().into_owned();
-    let path = pathedit::change_path(&env::var("PATH").unwrap_or_default(), "/bin", &vd, &cx.nvm_dir);
-    let e = Command::new(&cmd[0]).args(&cmd[1..]).env("PATH", path).env("NVM_BIN", format!("{vd}/bin")).env("NVM_INC", format!("{vd}/include/node")).env("NODE_VERSION", ver).exec();
+    let path = pathedit::change_path(
+        &env::var("PATH").unwrap_or_default(),
+        "/bin",
+        &vd,
+        &cx.nvm_dir,
+    );
+    let e = Command::new(&cmd[0])
+        .args(&cmd[1..])
+        .env("PATH", path)
+        .env("NVM_BIN", format!("{vd}/bin"))
+        .env("NVM_INC", format!("{vd}/include/node"))
+        .env("NODE_VERSION", ver)
+        .exec();
     eprintln!("{}: {e}", cmd[0]);
     127
 }
@@ -1726,16 +2058,37 @@ impl InstallLock {
         if fs::create_dir_all(&root).is_err() {
             return Ok(InstallLock(None));
         }
-        let name: String = ver.chars().map(|c| if c.is_ascii_alphanumeric() || "._+-".contains(c) { c } else { '_' }).collect();
+        let name: String = ver
+            .chars()
+            .map(|c| {
+                if c.is_ascii_alphanumeric() || "._+-".contains(c) {
+                    c
+                } else {
+                    '_'
+                }
+            })
+            .collect();
         let lock = root.join(name);
-        let timeout: u64 = env::var("NVM_INSTALL_LOCK_TIMEOUT").ok().and_then(|v| v.parse().ok()).unwrap_or(600);
-        let stale: u64 = env::var("NVM_INSTALL_LOCK_STALE").ok().and_then(|v| v.parse().ok()).unwrap_or(0);
+        let timeout: u64 = env::var("NVM_INSTALL_LOCK_TIMEOUT")
+            .ok()
+            .and_then(|v| v.parse().ok())
+            .unwrap_or(600);
+        let stale: u64 = env::var("NVM_INSTALL_LOCK_STALE")
+            .ok()
+            .and_then(|v| v.parse().ok())
+            .unwrap_or(0);
         let (mut waited, mut announced) = (0u64, false);
         while fs::create_dir(&lock).is_err() {
             if stale > 0 {
-                let old = fs::metadata(&lock).and_then(|m| m.modified()).ok().and_then(|t| t.elapsed().ok()).map_or(false, |a| a.as_secs() > stale * 60);
+                let old = fs::metadata(&lock)
+                    .and_then(|m| m.modified())
+                    .ok()
+                    .and_then(|t| t.elapsed().ok())
+                    .map_or(false, |a| a.as_secs() > stale * 60);
                 if old {
-                    eprintln!("Removing stale install lock for {ver} (older than {stale} minute(s))");
+                    eprintln!(
+                        "Removing stale install lock for {ver} (older than {stale} minute(s))"
+                    );
                     let _ = fs::remove_dir_all(&lock);
                     continue;
                 }
@@ -1764,9 +2117,25 @@ impl Drop for InstallLock {
 }
 
 fn cmd_debug(cx: &mut Ctx) -> i32 {
-    let run = |c: &str, a: &[&str]| Command::new(c).args(a).output().ok().map(|o| String::from_utf8_lossy(&[o.stdout, o.stderr].concat()).trim().to_string()).unwrap_or_default();
+    let run = |c: &str, a: &[&str]| {
+        Command::new(c)
+            .args(a)
+            .output()
+            .ok()
+            .map(|o| {
+                String::from_utf8_lossy(&[o.stdout, o.stderr].concat())
+                    .trim()
+                    .to_string()
+            })
+            .unwrap_or_default()
+    };
     eprintln!("nvm --version: v0.40.8");
-    eprintln!("nvm-core: {} ({}-{})", env!("CARGO_PKG_VERSION"), env::consts::OS, env::consts::ARCH);
+    eprintln!(
+        "nvm-core: {} ({}-{})",
+        env!("CARGO_PKG_VERSION"),
+        env::consts::OS,
+        env::consts::ARCH
+    );
     if let Ok(t) = env::var("TERM_PROGRAM") {
         eprintln!("$TERM_PROGRAM: {t}");
     }
@@ -1776,29 +2145,84 @@ fn cmd_debug(cx: &mut Ctx) -> i32 {
     eprintln!("whoami: '{}'", run("whoami", &[]));
     eprintln!("${{HOME}}: {}", env::var("HOME").unwrap_or_default());
     eprintln!("${{NVM_DIR}}: '{}'", sanitize(cx, &cx.nvm_dir));
-    eprintln!("${{PATH}}: {}", sanitize(cx, &env::var("PATH").unwrap_or_default()));
-    eprintln!("$PREFIX: '{}'", sanitize(cx, &env::var("PREFIX").unwrap_or_default()));
-    eprintln!("${{NPM_CONFIG_PREFIX}}: '{}'", sanitize(cx, &env::var("NPM_CONFIG_PREFIX").unwrap_or_default()));
-    eprintln!("$NVM_NODEJS_ORG_MIRROR: '{}'", env::var("NVM_NODEJS_ORG_MIRROR").unwrap_or_default());
-    eprintln!("$NVM_IOJS_ORG_MIRROR: '{}'", env::var("NVM_IOJS_ORG_MIRROR").unwrap_or_default());
+    eprintln!(
+        "${{PATH}}: {}",
+        sanitize(cx, &env::var("PATH").unwrap_or_default())
+    );
+    eprintln!(
+        "$PREFIX: '{}'",
+        sanitize(cx, &env::var("PREFIX").unwrap_or_default())
+    );
+    eprintln!(
+        "${{NPM_CONFIG_PREFIX}}: '{}'",
+        sanitize(cx, &env::var("NPM_CONFIG_PREFIX").unwrap_or_default())
+    );
+    eprintln!(
+        "$NVM_NODEJS_ORG_MIRROR: '{}'",
+        env::var("NVM_NODEJS_ORG_MIRROR").unwrap_or_default()
+    );
+    eprintln!(
+        "$NVM_IOJS_ORG_MIRROR: '{}'",
+        env::var("NVM_IOJS_ORG_MIRROR").unwrap_or_default()
+    );
     if !shell.is_empty() {
-        eprintln!("shell version: '{}'", run(&shell, &["--version"]).lines().next().unwrap_or(""));
+        eprintln!(
+            "shell version: '{}'",
+            run(&shell, &["--version"]).lines().next().unwrap_or("")
+        );
     }
     let un = run("uname", &["-a"]);
-    let un: Vec<&str> = un.split_whitespace().enumerate().filter(|(i, _)| *i != 1).map(|(_, w)| w).collect();
+    let un: Vec<&str> = un
+        .split_whitespace()
+        .enumerate()
+        .filter(|(i, _)| *i != 1)
+        .map(|(_, w)| w)
+        .collect();
     eprintln!("uname -a: '{}'", un.join(" "));
     eprintln!("checksum binary: 'built-in sha256'");
-    let osv = if cfg!(target_os = "macos") { run("sw_vers", &[]).lines().filter_map(|l| l.split_whitespace().nth(1)).collect::<Vec<_>>().join(" ") } else { fs::read_to_string("/etc/os-release").ok().and_then(|t| t.lines().find_map(|l| l.strip_prefix("PRETTY_NAME=").map(|v| v.trim_matches('"').to_string()))).unwrap_or_default() };
+    let osv = if cfg!(target_os = "macos") {
+        run("sw_vers", &[])
+            .lines()
+            .filter_map(|l| l.split_whitespace().nth(1))
+            .collect::<Vec<_>>()
+            .join(" ")
+    } else {
+        fs::read_to_string("/etc/os-release")
+            .ok()
+            .and_then(|t| {
+                t.lines().find_map(|l| {
+                    l.strip_prefix("PRETTY_NAME=")
+                        .map(|v| v.trim_matches('"').to_string())
+                })
+            })
+            .unwrap_or_default()
+    };
     if !osv.is_empty() {
         eprintln!("OS version: {osv}");
     }
     let cur = cx.st.ls_current(&env::var("PATH").unwrap_or_default());
     eprintln!("nvm current: {cur}");
-    for (label, tool) in [("which node", "node"), ("which iojs", "iojs"), ("which npm", "npm")] {
-        let p = env::var("PATH").unwrap_or_default().split(':').map(|d| std::path::Path::new(d).join(tool)).find(|f| f.is_file()).map(|f| f.display().to_string()).unwrap_or_default();
+    for (label, tool) in [
+        ("which node", "node"),
+        ("which iojs", "iojs"),
+        ("which npm", "npm"),
+    ] {
+        let p = env::var("PATH")
+            .unwrap_or_default()
+            .split(':')
+            .map(|d| std::path::Path::new(d).join(tool))
+            .find(|f| f.is_file())
+            .map(|f| f.display().to_string())
+            .unwrap_or_default();
         eprintln!("{label}: {}", sanitize(cx, &p));
     }
-    eprintln!("npm config get prefix: {}", sanitize(cx, &run("npm", &["config", "get", "prefix"])));
-    eprintln!("npm root -g: {}", sanitize(cx, &run("npm", &["root", "-g"])));
+    eprintln!(
+        "npm config get prefix: {}",
+        sanitize(cx, &run("npm", &["config", "get", "prefix"]))
+    );
+    eprintln!(
+        "npm root -g: {}",
+        sanitize(cx, &run("npm", &["root", "-g"]))
+    );
     42
 }

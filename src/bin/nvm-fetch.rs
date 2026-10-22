@@ -28,7 +28,11 @@ fn arch() -> &'static str {
 }
 
 fn slug(ver: &str) -> String {
-    let os = if cfg!(target_os = "macos") { "darwin" } else { "linux" };
+    let os = if cfg!(target_os = "macos") {
+        "darwin"
+    } else {
+        "linux"
+    };
     let mut a = arch().to_string();
     if os == "darwin" && a == "arm64" && major(ver) < 16 {
         a = "x64".into();
@@ -40,7 +44,11 @@ fn slug(ver: &str) -> String {
 }
 
 fn major(v: &str) -> u64 {
-    v.trim_start_matches('v').split('.').next().and_then(|x| x.parse().ok()).unwrap_or(0)
+    v.trim_start_matches('v')
+        .split('.')
+        .next()
+        .and_then(|x| x.parse().ok())
+        .unwrap_or(0)
 }
 
 fn http_get(url: &str) -> Result<Vec<u8>, i32> {
@@ -55,7 +63,10 @@ fn http_get(url: &str) -> Result<Vec<u8>, i32> {
         return Err(4);
     }
     let mut b = Vec::new();
-    r.body_mut().as_reader().read_to_end(&mut b).map_err(|_| 4)?;
+    r.body_mut()
+        .as_reader()
+        .read_to_end(&mut b)
+        .map_err(|_| 4)?;
     Ok(b)
 }
 
@@ -66,7 +77,10 @@ fn download(url: &str, dest: &Path, progress: bool) -> Result<String, i32> {
         req = req.header("Range", format!("bytes={have}-"));
     }
     if let Ok(h) = std::env::var("NVM_AUTH_HEADER") {
-        let clean: String = h.chars().filter(|c| c.is_ascii_alphanumeric() || " :_.+/=~-".contains(*c)).collect();
+        let clean: String = h
+            .chars()
+            .filter(|c| c.is_ascii_alphanumeric() || " :_.+/=~-".contains(*c))
+            .collect();
         req = req.header("Authorization", clean);
     }
     let mut resp = req.call().map_err(|_| {
@@ -89,7 +103,10 @@ fn download(url: &str, dest: &Path, progress: bool) -> Result<String, i32> {
     }
     let resumed = st == 206;
     let mut f = if resumed {
-        fs::OpenOptions::new().append(true).open(dest).map_err(|_| 4)?
+        fs::OpenOptions::new()
+            .append(true)
+            .open(dest)
+            .map_err(|_| 4)?
     } else {
         have = 0;
         File::create(dest).map_err(|_| 4)?
@@ -162,7 +179,8 @@ fn extract(tarball: &Path, into: &Path) -> Result<(), i32> {
 
 fn install(args: &[String]) -> i32 {
     let (mirror, ver, nvm_dir) = (&args[0], &args[1], &args[2]);
-    let progress = !args.iter().any(|a| a == "--no-progress") && std::env::var("NVM_NO_PROGRESS").as_deref() != Ok("1");
+    let progress = !args.iter().any(|a| a == "--no-progress")
+        && std::env::var("NVM_NO_PROGRESS").as_deref() != Ok("1");
     let offline = args.iter().any(|a| a == "--offline");
     let slug = slug(ver);
     let file = format!("{slug}.tar.xz");
@@ -192,7 +210,10 @@ fn install(args: &[String]) -> i32 {
             eprintln!("Offline: using cached archive {}", tarball.display());
             have_cache = true;
         } else if sha_file(&tarball).ok().as_deref() == want.as_deref() && want.is_some() {
-            eprintln!("Checksums match! Using existing downloaded archive {}", tarball.display());
+            eprintln!(
+                "Checksums match! Using existing downloaded archive {}",
+                tarball.display()
+            );
             have_cache = true;
         } else {
             eprintln!("Checksum check failed!\nRemoving the broken local cache...");

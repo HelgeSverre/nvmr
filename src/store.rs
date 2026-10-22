@@ -60,17 +60,25 @@ impl Store {
 
     pub fn system_version(&self) -> Option<String> {
         let n = self.system_node()?;
-        let o = std::process::Command::new(n).arg("--version").output().ok()?;
+        let o = std::process::Command::new(n)
+            .arg("--version")
+            .output()
+            .ok()?;
         Some(String::from_utf8_lossy(&o.stdout).trim().to_string())
     }
 
     /// Versions with a cached tarball (`.cache/bin/node-vX-<os>-<arch>`), ascending.
     pub fn cached(&self) -> Vec<(Ver, String)> {
-        let mut out: Vec<(Ver, String)> = fs::read_dir(self.dir.join(".cache/bin")).into_iter().flatten().flatten().filter_map(|e| {
-            let n = e.file_name().into_string().ok()?;
-            let v = n.strip_prefix("node-")?.split('-').next()?.to_string();
-            Some((parse_ver(&v)?, v))
-        }).collect();
+        let mut out: Vec<(Ver, String)> = fs::read_dir(self.dir.join(".cache/bin"))
+            .into_iter()
+            .flatten()
+            .flatten()
+            .filter_map(|e| {
+                let n = e.file_name().into_string().ok()?;
+                let v = n.strip_prefix("node-")?.split('-').next()?.to_string();
+                Some((parse_ver(&v)?, v))
+            })
+            .collect();
         out.sort();
         out.dedup();
         out
@@ -99,15 +107,29 @@ impl Store {
 
     /// §4.2. Returns Some(target) after >=1 hop (`∞` on cycle), None when no alias.
     pub fn lts_minus(&self, n: usize) -> Option<String> {
-        let mut names: Vec<String> = fs::read_dir(self.dir.join("alias/lts")).into_iter().flatten().flatten().filter_map(|e| e.file_name().into_string().ok()).filter(|n| n != "*").collect();
+        let mut names: Vec<String> = fs::read_dir(self.dir.join("alias/lts"))
+            .into_iter()
+            .flatten()
+            .flatten()
+            .filter_map(|e| e.file_name().into_string().ok())
+            .filter(|n| n != "*")
+            .collect();
         names.sort();
-        names.len().checked_sub(n + 1).and_then(|i| names.get(i).cloned())
+        names
+            .len()
+            .checked_sub(n + 1)
+            .and_then(|i| names.get(i).cloned())
     }
 
     pub fn resolve_alias(&self, pattern: &str) -> Option<String> {
-        if let Some(n) = pattern.strip_prefix("lts/-").and_then(|n| n.parse::<usize>().ok()) {
+        if let Some(n) = pattern
+            .strip_prefix("lts/-")
+            .and_then(|n| n.parse::<usize>().ok())
+        {
             let name = self.lts_minus(n)?;
-            return self.read_alias(&format!("lts/{name}")).map(|v| ensure_v(&v));
+            return self
+                .read_alias(&format!("lts/{name}"))
+                .map(|v| ensure_v(&v));
         }
         let mut seen = vec![pattern.to_string()];
         let mut cur = pattern.to_string();
@@ -121,7 +143,11 @@ impl Store {
         if cur == pattern {
             return None;
         }
-        Some(if matches!(cur.as_str(), "iojs" | "iojs-" | "node") { cur } else { ensure_v(&cur) })
+        Some(if matches!(cur.as_str(), "iojs" | "iojs-" | "node") {
+            cur
+        } else {
+            ensure_v(&cur)
+        })
     }
 
     /// Highest installed version matching a (partial) pattern like `20`, `v20.11`.
@@ -151,7 +177,11 @@ impl Store {
             return Err("N/A");
         }
         if pattern == "system" {
-            return if self.system_node().is_some() { Ok("system".into()) } else { Err("N/A") };
+            return if self.system_node().is_some() {
+                Ok("system".into())
+            } else {
+                Err("N/A")
+            };
         }
         let p = ensure_v(pattern);
         if pattern.starts_with("lts/-") {
@@ -163,7 +193,13 @@ impl Store {
         if self.alias_path(pattern).is_file() {
             return match self.resolve_alias(pattern) {
                 Some(t) if t == "∞" => Err("∞"),
-                Some(t) if t == "system" => if self.system_node().is_some() { Ok(t) } else { Err("N/A") },
+                Some(t) if t == "system" => {
+                    if self.system_node().is_some() {
+                        Ok(t)
+                    } else {
+                        Err("N/A")
+                    }
+                }
                 Some(t) => self.version(&t),
                 None => Err("N/A"),
             };
@@ -180,7 +216,10 @@ impl Store {
             let node = Path::new(d).join("node");
             if node.is_file() {
                 return match Path::new(d).strip_prefix(&root) {
-                    Ok(rest) => rest.components().next().map_or("system".into(), |c| c.as_os_str().to_string_lossy().into()),
+                    Ok(rest) => rest
+                        .components()
+                        .next()
+                        .map_or("system".into(), |c| c.as_os_str().to_string_lossy().into()),
                     Err(_) => "system".into(),
                 };
             }
@@ -189,7 +228,11 @@ impl Store {
     }
 
     pub fn npm_version(&self, v: &str) -> Option<String> {
-        let s = fs::read_to_string(self.version_dir(v).join("lib/node_modules/npm/package.json")).ok()?;
+        let s = fs::read_to_string(
+            self.version_dir(v)
+                .join("lib/node_modules/npm/package.json"),
+        )
+        .ok()?;
         let i = s.find("\"version\"")?;
         let rest = &s[i + 9..];
         let a = rest.find('"')? + 1;

@@ -6,7 +6,10 @@ fn npm_cmd(bindir: Option<&Path>) -> Command {
     match bindir {
         Some(b) => {
             let mut c = Command::new(b.join("npm"));
-            c.env("PATH", format!("{}:{}", b.display(), env::var("PATH").unwrap_or_default()));
+            c.env(
+                "PATH",
+                format!("{}:{}", b.display(), env::var("PATH").unwrap_or_default()),
+            );
             c
         }
         None => Command::new("npm"),
@@ -20,10 +23,16 @@ fn ge(v: Ver, a: u64, b: u64, c: u64) -> bool {
 /// Ported 1:1 from `nvm_install_latest_npm` for node >= 1.1 (the 0.x npm1/npm2 hops are not exercised).
 pub fn plan(v: Ver) -> (Option<&'static str>, &'static str) {
     if !ge(v, 1, 1, 0) {
-        return (Some("* `npm` v4.5.x is the last version that works on `node` versions < v1.1.0"), "npm@4.5");
+        return (
+            Some("* `npm` v4.5.x is the last version that works on `node` versions < v1.1.0"),
+            "npm@4.5",
+        );
     }
     if !ge(v, 4, 0, 0) {
-        return (Some("* `npm` v5 and higher do not work on `node` versions below v4.0.0"), "npm@4");
+        return (
+            Some("* `npm` v5 and higher do not work on `node` versions below v4.0.0"),
+            "npm@4",
+        );
     }
     let is44 = !ge(v, 4, 5, 0);
     let is5 = !is44 && ge(v, 5, 0, 0);
@@ -50,13 +59,22 @@ pub fn plan(v: Ver) -> (Option<&'static str>, &'static str) {
     if is44 || (is5 && !ge(v, 5, 10, 0)) {
         (Some("* `npm` `v5.3.x` is the last version that works on `node` 4.x versions below v4.4, or 5.x versions below v5.10, due to `Buffer.alloc`"), "npm@5.3")
     } else if !is44 && !ge(v, 4, 7, 0) {
-        (Some("* `npm` `v5.4.1` is the last version that works on `node` `v4.5` and `v4.6`"), "npm@5.4.1")
+        (
+            Some("* `npm` `v5.4.1` is the last version that works on `node` `v4.5` and `v4.6`"),
+            "npm@5.4.1",
+        )
     } else if !is6 {
-        (Some("* `npm` `v5.x` is the last version that works on `node` below `v6.0.0`"), "npm@5")
+        (
+            Some("* `npm` `v5.x` is the last version that works on `node` below `v6.0.0`"),
+            "npm@5",
+        )
     } else if (is6 && !is62) || (is9 && !is93) {
         (Some("* `npm` `v6.9` is the last version that works on `node` `v6.0.x`, `v6.1.x`, `v9.0.x`, `v9.1.x`, or `v9.2.x`"), "npm@6.9")
     } else if !is10 {
-        (Some("* `npm` `v6.x` is the last version that works on `node` below `v10.0.0`"), "npm@6")
+        (
+            Some("* `npm` `v6.x` is the last version that works on `node` below `v10.0.0`"),
+            "npm@6",
+        )
     } else if !is12 || (is13 && !is14) || (is15 && !is16) {
         (Some("* `npm` `v7.x` is the last version that works on `node` `v13`, `v15`, below `v12.13`, or `v14.0` - `v14.15`"), "npm@7")
     } else if (is12 && !is13) || (is14 && !is1417) || (is16 && !is16l) || (is17 && !is18) {
@@ -71,7 +89,11 @@ pub fn plan(v: Ver) -> (Option<&'static str>, &'static str) {
 }
 
 fn npm_version(bindir: Option<&Path>) -> Option<String> {
-    let o = npm_cmd(bindir).arg("--version").output().ok().filter(|o| o.status.success())?;
+    let o = npm_cmd(bindir)
+        .arg("--version")
+        .output()
+        .ok()
+        .filter(|o| o.status.success())?;
     Some(String::from_utf8_lossy(&o.stdout).trim().to_string())
 }
 
@@ -99,26 +121,44 @@ pub fn install_latest(node_version: &str, bindir: Option<&Path>) -> i32 {
     } else {
         let _ = npm_cmd(bindir).args(["install", "-g", pkg]).status();
     }
-    println!("* npm upgraded to: v{}", npm_version(bindir).unwrap_or_default());
+    println!(
+        "* npm upgraded to: v{}",
+        npm_version(bindir).unwrap_or_default()
+    );
     0
 }
 
 /// Parses `npm list -g --depth=0` output into (installs, links).
 pub fn global_modules(src_bin: &Path) -> (Vec<String>, Vec<String>) {
-    let out = npm_cmd(Some(src_bin)).args(["list", "-g", "--depth=0"]).output().map(|o| String::from_utf8_lossy(&o.stdout).into_owned()).unwrap_or_default();
-    let lines: Vec<&str> = out.lines().skip(1).filter(|l| !l.contains("UNMET PEER DEPENDENCY")).collect();
+    let out = npm_cmd(Some(src_bin))
+        .args(["list", "-g", "--depth=0"])
+        .output()
+        .map(|o| String::from_utf8_lossy(&o.stdout).into_owned())
+        .unwrap_or_default();
+    let lines: Vec<&str> = out
+        .lines()
+        .skip(1)
+        .filter(|l| !l.contains("UNMET PEER DEPENDENCY"))
+        .collect();
     let mut installs = vec![];
     for l in &lines {
         if l.contains(" -> ") || l.contains("(empty)") {
             continue;
         }
-        if let Some(tok) = l.split(' ').rev().find(|t| t.contains('@') && !t.is_empty()) {
+        if let Some(tok) = l
+            .split(' ')
+            .rev()
+            .find(|t| t.contains('@') && !t.is_empty())
+        {
             if !tok.starts_with("npm@") && !tok.starts_with("corepack@") {
                 installs.push(tok.to_string());
             }
         }
     }
-    let links = lines.iter().filter_map(|l| l.split_once(" -> ").map(|x| x.1.to_string())).collect();
+    let links = lines
+        .iter()
+        .filter_map(|l| l.split_once(" -> ").map(|x| x.1.to_string()))
+        .collect();
     (installs, links)
 }
 
@@ -128,7 +168,10 @@ pub fn reinstall(label: &str, src_bin: &Path, target_bin: Option<&Path>) {
     if installs.is_empty() {
         println!("No installed global packages found...");
     } else {
-        let _ = npm_cmd(target_bin).args(["install", "-g", "--quiet"]).args(&installs).status();
+        let _ = npm_cmd(target_bin)
+            .args(["install", "-g", "--quiet"])
+            .args(&installs)
+            .status();
     }
     println!("Linking global packages from {label}...");
     if links.is_empty() {
@@ -138,7 +181,11 @@ pub fn reinstall(label: &str, src_bin: &Path, target_bin: Option<&Path>) {
             let dir = if l.starts_with('/') {
                 l.into()
             } else {
-                let root = npm_cmd(target_bin).args(["root", "-g"]).output().map(|o| String::from_utf8_lossy(&o.stdout).trim().to_string()).unwrap_or_default();
+                let root = npm_cmd(target_bin)
+                    .args(["root", "-g"])
+                    .output()
+                    .map(|o| String::from_utf8_lossy(&o.stdout).trim().to_string())
+                    .unwrap_or_default();
                 format!("{root}/../{l}")
             };
             let _ = npm_cmd(target_bin).arg("link").current_dir(dir).status();
@@ -149,7 +196,9 @@ pub fn reinstall(label: &str, src_bin: &Path, target_bin: Option<&Path>) {
 /// awk-exact loader: skip `#...` and blank lines, error on any line containing whitespace.
 pub fn default_packages(nvm_dir: &Path) -> Result<Vec<String>, i32> {
     let f = nvm_dir.join("default-packages");
-    let Ok(txt) = fs::read_to_string(&f) else { return Ok(vec![]) };
+    let Ok(txt) = fs::read_to_string(&f) else {
+        return Ok(vec![]);
+    };
     let mut out = vec![];
     for (i, l) in txt.lines().enumerate() {
         if l.trim_start().starts_with('#') || l.trim().is_empty() {
@@ -160,7 +209,11 @@ pub fn default_packages(nvm_dir: &Path) -> Result<Vec<String>, i32> {
             return Err(1);
         }
         // awk quirk: every accepted line after file line 1 is preceded by a space, so the joined string may start with one.
-        out.push(if i > 0 { format!(" {l}") } else { l.to_string() });
+        out.push(if i > 0 {
+            format!(" {l}")
+        } else {
+            l.to_string()
+        });
     }
     Ok(out)
 }
@@ -173,9 +226,17 @@ pub fn install_default_packages(nvm_dir: &Path, bindir: &Path) -> i32 {
     if pkgs.is_empty() {
         return 0;
     }
-    println!("Installing default global packages from {}/default-packages...", nvm_dir.display());
+    println!(
+        "Installing default global packages from {}/default-packages...",
+        nvm_dir.display()
+    );
     println!("npm install -g --quiet {}", pkgs.concat());
-    let ok = npm_cmd(Some(bindir)).args(["install", "-g", "--quiet"]).args(pkgs.iter().map(|p| p.trim())).status().map(|s| s.success()).unwrap_or(false);
+    let ok = npm_cmd(Some(bindir))
+        .args(["install", "-g", "--quiet"])
+        .args(pkgs.iter().map(|p| p.trim()))
+        .status()
+        .map(|s| s.success())
+        .unwrap_or(false);
     if !ok {
         eprintln!("Failed installing default packages. Please check if your default-packages file or a package in it has problems!");
         return 1;

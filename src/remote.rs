@@ -11,27 +11,43 @@ pub struct Row {
 }
 
 pub fn mirror() -> String {
-    env::var("NVM_NODEJS_ORG_MIRROR").unwrap_or_else(|_| "https://nodejs.org/dist".into()).trim_end_matches('/').to_string()
+    env::var("NVM_NODEJS_ORG_MIRROR")
+        .unwrap_or_else(|_| "https://nodejs.org/dist".into())
+        .trim_end_matches('/')
+        .to_string()
 }
 
 /// `^https?://[]a-zA-Z0-9._~:/@%[-]+$`
 pub fn mirror_ok(m: &str) -> bool {
-    let rest = m.strip_prefix("https://").or_else(|| m.strip_prefix("http://"));
-    rest.map_or(false, |r| !r.is_empty() && r.chars().all(|c| c.is_ascii_alphanumeric() || "]._~:/@%[-".contains(c)))
+    let rest = m
+        .strip_prefix("https://")
+        .or_else(|| m.strip_prefix("http://"));
+    rest.map_or(false, |r| {
+        !r.is_empty()
+            && r.chars()
+                .all(|c| c.is_ascii_alphanumeric() || "]._~:/@%[-".contains(c))
+    })
 }
 
 pub fn fetch_bin() -> PathBuf {
     if let Ok(p) = env::var("NVM_FETCH") {
         return p.into();
     }
-    env::current_exe().ok().and_then(|e| e.parent().map(|d| d.join("nvm-fetch"))).unwrap_or_else(|| "nvm-fetch".into())
+    env::current_exe()
+        .ok()
+        .and_then(|e| e.parent().map(|d| d.join("nvm-fetch")))
+        .unwrap_or_else(|| "nvm-fetch".into())
 }
 
 pub fn http_get(url: &str) -> Result<String, i32> {
-    let out = Command::new(fetch_bin()).args(["get", url]).stderr(std::process::Stdio::null()).output().map_err(|_| {
-        eprintln!("nvm-fetch not found");
-        1
-    })?;
+    let out = Command::new(fetch_bin())
+        .args(["get", url])
+        .stderr(std::process::Stdio::null())
+        .output()
+        .map_err(|_| {
+            eprintln!("nvm-fetch not found");
+            1
+        })?;
     if !out.status.success() {
         return Err(out.status.code().unwrap_or(4));
     }
@@ -46,7 +62,17 @@ fn key(v: &str) -> Ver {
 pub fn iojs_rows() -> Result<Vec<Row>, i32> {
     let m = env::var("NVM_IOJS_ORG_MIRROR").unwrap_or_else(|_| "https://iojs.org/dist".into());
     let body = http_get(&format!("{}/index.tab", m.trim_end_matches('/')))?;
-    Ok(body.lines().skip(1).filter_map(|l| l.split('\t').next()).filter(|v| v.starts_with('v')).map(|v| Row { ver: format!("iojs-{v}"), lts: None, latest_of_line: false }).collect())
+    Ok(body
+        .lines()
+        .skip(1)
+        .filter_map(|l| l.split('\t').next())
+        .filter(|v| v.starts_with('v'))
+        .map(|v| Row {
+            ver: format!("iojs-{v}"),
+            lts: None,
+            latest_of_line: false,
+        })
+        .collect())
 }
 
 /// Fetch index.tab, rewrite alias/lts/*, return rows ascending by version.
@@ -56,7 +82,9 @@ pub fn index(st: &Store) -> Result<Vec<Row>, i32> {
         return Ok(vec![]);
     }
     // Upstream treats any fetch failure as "no versions".
-    let Ok(body) = http_get(&format!("{}/index.tab", mirror())) else { return Ok(vec![]) };
+    let Ok(body) = http_get(&format!("{}/index.tab", mirror())) else {
+        return Ok(vec![]);
+    };
     let mut rows = vec![];
     let mut seen: Vec<String> = vec![];
     for l in body.lines().skip(1) {
@@ -79,7 +107,11 @@ pub fn index(st: &Store) -> Result<Vec<Row>, i32> {
                 }
             }
         }
-        rows.push(Row { ver: c[0].into(), lts, latest_of_line: latest });
+        rows.push(Row {
+            ver: c[0].into(),
+            lts,
+            latest_of_line: latest,
+        });
     }
     rows.sort_by_key(|r| key(&r.ver));
     Ok(rows)
@@ -88,9 +120,19 @@ pub fn index(st: &Store) -> Result<Vec<Row>, i32> {
 /// `lts/-N` -> codename; Err(msg, rc).
 pub fn lts_name(st: &Store, arg: &str) -> Result<String, (String, i32)> {
     if let Some(n) = arg.strip_prefix('-').and_then(|n| n.parse::<usize>().ok()) {
-        let mut names: Vec<String> = fs::read_dir(st.dir.join("alias/lts")).into_iter().flatten().flatten().filter_map(|e| e.file_name().into_string().ok()).filter(|n| n != "*").collect();
+        let mut names: Vec<String> = fs::read_dir(st.dir.join("alias/lts"))
+            .into_iter()
+            .flatten()
+            .flatten()
+            .filter_map(|e| e.file_name().into_string().ok())
+            .filter(|n| n != "*")
+            .collect();
         names.sort();
-        return names.len().checked_sub(n + 1).and_then(|i| names.get(i).cloned()).ok_or(("That many LTS releases do not exist yet.".into(), 2));
+        return names
+            .len()
+            .checked_sub(n + 1)
+            .and_then(|i| names.get(i).cloned())
+            .ok_or(("That many LTS releases do not exist yet.".into(), 2));
     }
     if arg != arg.to_lowercase() {
         return Err(("LTS names must be lowercase".into(), 3));
@@ -107,7 +149,11 @@ pub fn filter<'a>(rows: &'a [Row], lts: Option<&str>, pattern: Option<&str>) -> 
         .filter(|r| match lts {
             None => true,
             Some("*") => r.lts.is_some(),
-            Some(n) => r.lts.as_ref().map(|l| l.to_lowercase() == n.to_lowercase()).unwrap_or(false),
+            Some(n) => r
+                .lts
+                .as_ref()
+                .map(|l| l.to_lowercase() == n.to_lowercase())
+                .unwrap_or(false),
         })
         .filter(|r| match pattern {
             None => true,
@@ -122,20 +168,37 @@ pub fn filter<'a>(rows: &'a [Row], lts: Option<&str>, pattern: Option<&str>) -> 
 }
 
 /// Resolve a pattern against the remote list. Returns the chosen row.
-pub fn resolve<'a>(st: &Store, rows: &'a [Row], pattern: &str, lts: Option<&str>) -> Option<&'a Row> {
+pub fn resolve<'a>(
+    st: &Store,
+    rows: &'a [Row],
+    pattern: &str,
+    lts: Option<&str>,
+) -> Option<&'a Row> {
     let mut pat = pattern.to_string();
     if let Some(t) = st.resolve_alias(&pat) {
         pat = t;
     }
     if matches!(pat.as_str(), "" | "node" | "stable") {
-        return filter(rows, lts, None).into_iter().filter(|r| parse_ver(&r.ver).map(|v: Ver| v.0 >= 1).unwrap_or(false)).last();
+        return filter(rows, lts, None)
+            .into_iter()
+            .filter(|r| parse_ver(&r.ver).map(|v: Ver| v.0 >= 1).unwrap_or(false))
+            .last();
     }
     filter(rows, lts, Some(&pat)).into_iter().last()
 }
 
-pub fn format_row(r: &Row, installed: bool, current: bool, pal: &Option<crate::colors::Pal>) -> String {
+pub fn format_row(
+    r: &Row,
+    installed: bool,
+    current: bool,
+    pal: &Option<crate::colors::Pal>,
+) -> String {
     use crate::colors::{bold_current, paint};
-    let base = if current { format!("->{:>13}", r.ver) } else { format!("{:>15}", r.ver) };
+    let base = if current {
+        format!("->{:>13}", r.ver)
+    } else {
+        format!("{:>15}", r.ver)
+    };
     let Some(p) = pal else {
         let mut s = base;
         if installed || current {
@@ -145,7 +208,11 @@ pub fn format_row(r: &Row, installed: bool, current: bool, pal: &Option<crate::c
             if !(installed || current) {
                 s += "  ";
             }
-            s += &if r.latest_of_line { format!(" (Latest LTS: {n})") } else { format!(" (LTS: {n})") };
+            s += &if r.latest_of_line {
+                format!(" (Latest LTS: {n})")
+            } else {
+                format!(" (LTS: {n})")
+            };
         }
         return s;
     };

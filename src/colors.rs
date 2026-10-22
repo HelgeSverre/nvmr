@@ -32,7 +32,9 @@ pub fn valid_codes(s: &str) -> bool {
 
 /// None when colour is off: not a TTY, TERM unusable, `--no-colors`, or NVM_NO_COLORS=--no-colors.
 pub fn detect(args: &[String]) -> Option<Pal> {
-    if args.iter().any(|a| a == "--no-colors") || env::var("NVM_NO_COLORS").as_deref() == Ok("--no-colors") {
+    if args.iter().any(|a| a == "--no-colors")
+        || env::var("NVM_NO_COLORS").as_deref() == Ok("--no-colors")
+    {
         return None;
     }
     if !std::io::stdout().is_terminal() {
@@ -42,10 +44,20 @@ pub fn detect(args: &[String]) -> Option<Pal> {
         Ok(t) if !t.is_empty() && t != "dumb" => {}
         _ => return None,
     }
-    let spec = env::var("NVM_COLORS").ok().filter(|s| valid_codes(s)).unwrap_or_else(|| "bygre".into());
+    let spec = env::var("NVM_COLORS")
+        .ok()
+        .filter(|s| valid_codes(s))
+        .unwrap_or_else(|| "bygre".into());
     let cs: Vec<&str> = spec.chars().map(|c| code(c).unwrap()).collect();
     let bold2 = format!("1;{}", cs[1].split(';').nth(1).unwrap_or("33"));
-    Some(Pal([cs[0].into(), cs[1].into(), cs[2].into(), cs[3].into(), cs[4].into(), bold2]))
+    Some(Pal([
+        cs[0].into(),
+        cs[1].into(),
+        cs[2].into(),
+        cs[3].into(),
+        cs[4].into(),
+        bold2,
+    ]))
 }
 
 pub fn paint(p: &Option<Pal>, i: usize, s: &str) -> String {
