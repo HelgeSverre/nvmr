@@ -1,4 +1,6 @@
 target/
 dist/
 package-lock.json
-wip/
+bench/.build/
+bench/.sandbox/
+bench/results/*/raw/

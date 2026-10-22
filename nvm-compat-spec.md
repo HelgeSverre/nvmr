@@ -645,11 +645,11 @@ Measured on an idle Apple-silicon Mac with hyperfine `-N`, `--warmup 20`, ≥ 30
 - Per-exec: `hyperfine -N '<resolved path>/node -e 0'` for the direct binary vs each manager's shim; the difference is the shim tax.
 - First-prompt lag, the user-perceived number: `romkatv/zsh-bench` (`first_prompt_lag_ms`, `command_lag_ms`) once per release.
 
-**In-process timings.** `NVM_TIMINGS=1` makes `nvm-core` print a phase table to stderr on exit (`argv`, `env`, `alias-resolve`, `stat`, `path-edit`, `eval-write`, `total`, each in µs) — the equivalent of mise's `MISE_TIMINGS`. Zero cost when unset (one `getenv`).
+**In-process timings.** `NVM_TIMINGS=1` makes `nvm-core` print one line to stderr on exit: `nvm-core timings (µs): setup … command … eval-write … total …` (from the start of `main`; process start-up and dynamic loading before `main` are not included, measure those with the harness). Zero cost when unset (one `getenv`).
 
 **Native profilers.** macOS: `samply record ./nvm-core …` (Firefox Profiler UI; works on any native binary) or `xctrace record --template 'Time Profiler'`; `DYLD_PRINT_STATISTICS` no longer prints on macOS 15+, so audit load cost with `otool -L` and `dyld_info -dependents`. Linux: `perf stat -e task-clock,page-faults,syscalls` and `cargo flamegraph`. Syscall counts: `strace -c` (Linux), `dtruss` (mac, needs SIP relaxed; CI uses the Linux count as the gate). In-process micro-benchmarks with `divan` for version parsing/sorting (1,000 entries), `nvm_change_path`, `index.tab` parsing, `.nvmrc` parsing, and the awk-port formatter.
 
-**CI gate.** `bench/run.sh` executes the matrix above on the macOS arm64 and ubuntu arm64 runners after every build, writes `bench/results/<sha>.json`, and fails the job when any MUST column in §13.2 is exceeded or when a hot command's min regresses > 15 % against `bench/baseline.json` (updated deliberately in the same PR that changes behaviour). GitHub runners are noisy: the gate uses mins over 5 rotated rounds, and the medians are informative only. The golden-output harness (§11) reuses the same command sequences, so correctness and timing run from one script.
+**Harness.** `bench/` implements the matrix above (AGENTS.md, "Benchmarking and profiling", has the rules): `bench/docker.sh` runs it in a pinned image with no network, a fixed CPU set and memory cap; `bench/host.sh` runs it on the developer machine in a sandbox. Both write `bench/results/<stamp>-<where>/` (`report.md`, `summary.json`, `meta.json`, `profile.md`). Not done yet: running it in CI with a regression threshold against a committed baseline.
 
 ### 13.4 Competitors: measured and what the design takes from each
 
