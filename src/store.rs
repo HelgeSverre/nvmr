@@ -36,7 +36,7 @@ impl Store {
         if let Some(r) = v.strip_prefix("iojs-") {
             return self.dir.join("versions/io.js").join(r);
         }
-        if parse_ver(v).map_or(false, |x| x < (0, 12, 0)) {
+        if parse_ver(v).is_some_and(|x| x < (0, 12, 0)) {
             return self.dir.join(v);
         }
         self.dir.join("versions/node").join(v)
@@ -55,7 +55,7 @@ impl Store {
                 let Ok(n) = e.file_name().into_string() else {
                     continue;
                 };
-                if !e.file_type().map(|t| t.is_dir()).unwrap_or(false) {
+                if !e.file_type().is_ok_and(|t| t.is_dir()) {
                     continue; // upstream's `find -type d` ignores files and symlinks
                 }
                 if let Some(v) = parse_ver(&n).filter(|_| n.starts_with('v')) {
@@ -117,7 +117,7 @@ impl Store {
             return self.system_node().is_some();
         }
         let p = self.version_dir(v).join("bin/node");
-        fs::metadata(p).map(|m| m.is_file()).unwrap_or(false)
+        fs::metadata(p).is_ok_and(|m| m.is_file())
     }
 
     pub fn alias_path(&self, name: &str) -> PathBuf {

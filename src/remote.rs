@@ -22,7 +22,7 @@ pub fn mirror_ok(m: &str) -> bool {
     let rest = m
         .strip_prefix("https://")
         .or_else(|| m.strip_prefix("http://"));
-    rest.map_or(false, |r| {
+    rest.is_some_and(|r| {
         !r.is_empty()
             && r.chars()
                 .all(|c| c.is_ascii_alphanumeric() || "]._~:/@%[-".contains(c))
@@ -152,8 +152,7 @@ pub fn filter<'a>(rows: &'a [Row], lts: Option<&str>, pattern: Option<&str>) -> 
             Some(n) => r
                 .lts
                 .as_ref()
-                .map(|l| l.to_lowercase() == n.to_lowercase())
-                .unwrap_or(false),
+                .is_some_and(|l| l.to_lowercase() == n.to_lowercase()),
         })
         .filter(|r| match pattern {
             None => true,
@@ -181,8 +180,7 @@ pub fn resolve<'a>(
     if matches!(pat.as_str(), "" | "node" | "stable") {
         return filter(rows, lts, None)
             .into_iter()
-            .filter(|r| parse_ver(&r.ver).map(|v: Ver| v.0 >= 1).unwrap_or(false))
-            .last();
+            .rfind(|r| parse_ver(&r.ver).is_some_and(|v: Ver| v.0 >= 1));
     }
     filter(rows, lts, Some(&pat)).into_iter().last()
 }

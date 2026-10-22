@@ -235,8 +235,7 @@ pub fn install_default_packages(nvm_dir: &Path, bindir: &Path) -> i32 {
         .args(["install", "-g", "--quiet"])
         .args(pkgs.iter().map(|p| p.trim()))
         .status()
-        .map(|s| s.success())
-        .unwrap_or(false);
+        .is_ok_and(|s| s.success());
     if !ok {
         eprintln!("Failed installing default packages. Please check if your default-packages file or a package in it has problems!");
         return 1;

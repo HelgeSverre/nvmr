@@ -48,7 +48,7 @@ pub fn detect(args: &[String]) -> Option<Pal> {
         .ok()
         .filter(|s| valid_codes(s))
         .unwrap_or_else(|| "bygre".into());
-    let cs: Vec<&str> = spec.chars().map(|c| code(c).unwrap()).collect();
+    let cs: Vec<&str> = spec.chars().filter_map(code).collect();
     let bold2 = format!("1;{}", cs[1].split(';').nth(1).unwrap_or("33"));
     Some(Pal([
         cs[0].into(),

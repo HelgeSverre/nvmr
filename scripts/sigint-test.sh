@@ -34,16 +34,16 @@ up() { for _ in $(seq 50); do curl -sf -o /dev/null http://127.0.0.1:8098/dist/i
 export NVM_DIR=/tmp/si NVM_NODEJS_ORG_MIRROR=http://127.0.0.1:8098/dist NVM_NO_PROGRESS=1
 F=/src/target/release/nvm-fetch
 # 1) interrupt mid-download
-$F install $NVM_NODEJS_ORG_MIRROR $V $NVM_DIR --no-progress >/tmp/si.out 2>&1 &
+$F install $NVM_NODEJS_ORG_MIRROR $V $NVM_DIR --dest=$NVM_DIR/versions/node/$V --no-progress >/tmp/si.out 2>&1 &
 PID=$!; sleep 3; kill -INT $PID; wait $PID; echo "download interrupted rc=$?"
 ls -l $NVM_DIR/.cache/bin/$SLUG/ | awk 'NR>1{print $5, $9}'
 # 2) resume to completion (fast now)
 DELAY=0 pkill -f slow.py; (cd /srv2 && DELAY=0 exec python3 /tmp/slow.py >/dev/null 2>&1 &); sleep 0.5; up
-$F install $NVM_NODEJS_ORG_MIRROR $V $NVM_DIR --no-progress 2>&1 | tail -3; echo "resume rc=${PIPESTATUS[0]}"
+$F install $NVM_NODEJS_ORG_MIRROR $V $NVM_DIR --dest=$NVM_DIR/versions/node/$V --no-progress 2>&1 | tail -3; echo "resume rc=${PIPESTATUS[0]}"
 ls $NVM_DIR/versions/node/$V/bin; echo "cached tarball kept: $(ls $NVM_DIR/.cache/bin/$SLUG | tr '\n' ' ')"
 # 3) interrupt during extraction (big xz): remove version, restart with cached tarball, SIGINT shortly after start
 rm -rf $NVM_DIR/versions
-$F install $NVM_NODEJS_ORG_MIRROR $V $NVM_DIR --no-progress >/dev/null 2>&1 &
+$F install $NVM_NODEJS_ORG_MIRROR $V $NVM_DIR --dest=$NVM_DIR/versions/node/$V --no-progress >/dev/null 2>&1 &
 PID=$!
 for _ in $(seq 500); do [ -d $NVM_DIR/.cache/bin/$SLUG/files ] && break; sleep 0.01; done
 sleep 0.05; kill -INT $PID; wait $PID; echo "extract interrupted rc=$?"

@@ -1,7 +1,8 @@
 //! nvm-fetch: HTTPS download, checksum, extraction (spec §6.1.1, §13.2).
 //! Protocol with nvm-core:
 //!   nvm-fetch get <url>                              body -> stdout; rc 4 on failure, 5 on 404
-//!   nvm-fetch install <mirror> <vX.Y.Z> <nvm_dir> [--no-progress] [--offline]
+//!   nvm-fetch install <mirror> <vX.Y.Z> <nvm_dir> [--dest=<dir>] [--source] [--offline] [--no-progress]
+//!                                                    download + verify + extract; with --dest, move into place
 use sha2::{Digest, Sha256};
 use std::fs::{self, File};
 use std::io::{Read, Write};
@@ -72,7 +73,7 @@ fn http_get(url: &str) -> Result<Vec<u8>, i32> {
 
 fn download(url: &str, dest: &Path, progress: bool) -> Result<String, i32> {
     let _ = ctrlc::set_handler(|| exit(130)); // partial tarball stays on disk for `Range:` resume
-    let mut have = fs::metadata(dest).map(|m| m.len()).unwrap_or(0);
+    let mut have = fs::metadata(dest).map_or(0, |m| m.len());
     let mut req = agent().get(url);
     if have > 0 {
         req = req.header("Range", format!("bytes={have}-"));
@@ -189,12 +190,47 @@ fn sanitize(nvm_dir: &str, p: &Path) -> String {
     o
 }
 
-fn install(args: &[String]) -> i32 {
-    let (mirror, ver, nvm_dir) = (&args[0], &args[1], &args[2]);
-    let progress = !args.iter().any(|a| a == "--no-progress")
-        && std::env::var("NVM_NO_PROGRESS").as_deref() != Ok("1");
-    let offline = args.iter().any(|a| a == "--offline");
-    let source = args.iter().any(|a| a == "--source");
+/// Options for `nvm-fetch install`.
+struct Install<'a> {
+    mirror: &'a str,
+    version: &'a str,
+    nvm_dir: &'a str,
+    /// Version directory to move the extracted tree into; `None` leaves it in the cache (source builds).
+    dest: Option<&'a Path>,
+    source: bool,
+    offline: bool,
+    progress: bool,
+}
+
+impl<'a> Install<'a> {
+    fn parse(mirror: &'a str, version: &'a str, nvm_dir: &'a str, flags: &'a [String]) -> Self {
+        let has = |f: &str| flags.iter().any(|a| a == f);
+        Install {
+            mirror,
+            version,
+            nvm_dir,
+            dest: flags
+                .iter()
+                .find_map(|a| a.strip_prefix("--dest="))
+                .map(Path::new),
+            source: has("--source"),
+            offline: has("--offline"),
+            progress: !has("--no-progress")
+                && std::env::var("NVM_NO_PROGRESS").as_deref() != Ok("1"),
+        }
+    }
+}
+
+fn install(opts: &Install) -> i32 {
+    let Install {
+        mirror,
+        version: ver,
+        nvm_dir,
+        source,
+        offline,
+        progress,
+        ..
+    } = *opts;
     let slug = if source {
         format!("node-{ver}")
     } else {
@@ -278,22 +314,8 @@ fn install(args: &[String]) -> i32 {
         let _ = fs::remove_dir_all(&files);
         return 1;
     }
-    if source {
-        return 0; // caller builds in `files/`
-    }
-    // `nvm_version_path`: node < 0.12 lives in the old layout, `$NVM_DIR/vX.Y.Z`
-    let old_layout = {
-        let n: Vec<u64> = ver
-            .trim_start_matches('v')
-            .split('.')
-            .filter_map(|x| x.parse().ok())
-            .collect();
-        n.len() == 3 && (n[0], n[1]) < (0, 12)
-    };
-    let vdir = if old_layout {
-        Path::new(nvm_dir).join(ver)
-    } else {
-        Path::new(nvm_dir).join("versions/node").join(ver)
+    let Some(vdir) = opts.dest else {
+        return 0; // source build: the caller builds in `files/`
     };
     let parent = vdir.parent().unwrap_or_else(|| Path::new("."));
     let _ = fs::create_dir_all(parent);
@@ -302,11 +324,11 @@ fn install(args: &[String]) -> i32 {
     // version enumeration (`starts_with('v')`) never picks them up.
     let old = parent.join(format!(".old-{slug}"));
     let _ = fs::remove_dir_all(&old);
-    if vdir.exists() && fs::rename(&vdir, &old).is_err() {
+    if vdir.exists() && fs::rename(vdir, &old).is_err() {
         return 1;
     }
-    if fs::rename(&files, &vdir).is_err() {
-        let _ = fs::rename(&old, &vdir);
+    if fs::rename(&files, vdir).is_err() {
+        let _ = fs::rename(&old, vdir);
         return 1;
     }
     let _ = fs::remove_dir_all(&old);
@@ -314,18 +336,20 @@ fn install(args: &[String]) -> i32 {
 }
 
 fn main() {
-    let a: Vec<String> = std::env::args().skip(1).collect();
-    let rc = match a.first().map(String::as_str) {
-        Some("get") if a.len() >= 2 => match http_get(&a[1]) {
+    let args: Vec<String> = std::env::args().skip(1).collect();
+    let rc = match args.as_slice() {
+        [cmd, url] if cmd == "get" => match http_get(url) {
             Ok(b) => {
                 let _ = std::io::stdout().write_all(&b);
                 0
             }
             Err(c) => c,
         },
-        Some("install") if a.len() >= 4 => install(&a[1..]),
+        [cmd, mirror, version, nvm_dir, flags @ ..] if cmd == "install" => {
+            install(&Install::parse(mirror, version, nvm_dir, flags))
+        }
         _ => {
-            eprintln!("usage: nvm-fetch get <url> | install <mirror> <version> <nvm_dir>");
+            eprintln!("usage: nvm-fetch get <url> | install <mirror> <version> <nvm_dir> [--dest=<dir>] [--source] [--offline] [--no-progress]");
             2
         }
     };
