@@ -122,17 +122,35 @@ pub fn resolve<'a>(st: &Store, rows: &'a [Row], pattern: &str, lts: Option<&str>
     filter(rows, lts, Some(&pat)).into_iter().last()
 }
 
-pub fn format_row(r: &Row, installed: bool, current: bool, show_lts: bool) -> String {
-    let mut s = if current { format!("->{:>13}", r.ver) } else { format!("{:>15}", r.ver) };
-    if installed || current {
-        s += " *";
-    }
-    if show_lts {
+pub fn format_row(r: &Row, installed: bool, current: bool, pal: &Option<crate::colors::Pal>) -> String {
+    use crate::colors::{bold_current, paint};
+    let base = if current { format!("->{:>13}", r.ver) } else { format!("{:>15}", r.ver) };
+    let Some(p) = pal else {
+        let mut s = base;
+        if installed || current {
+            s += " *";
+        }
         if let Some(n) = &r.lts {
             if !(installed || current) {
                 s += "  ";
             }
             s += &if r.latest_of_line { format!(" (Latest LTS: {n})") } else { format!(" (LTS: {n})") };
+        }
+        return s;
+    };
+    let mut s = if current {
+        paint(pal, 3, &base)
+    } else if installed {
+        paint(pal, 1, &base)
+    } else {
+        base
+    };
+    if let Some(n) = &r.lts {
+        s += "  ";
+        if r.latest_of_line {
+            s += &format!("\x1b[{}m (Latest LTS: {n})\x1b[0m", bold_current(p));
+        } else {
+            s += &paint(pal, 5, &format!(" (LTS: {n})"));
         }
     }
     s

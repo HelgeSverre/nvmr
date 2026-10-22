@@ -1,3 +1,4 @@
+mod colors;
 mod pathedit;
 mod remote;
 mod store;
@@ -41,6 +42,7 @@ impl Eval {
 }
 
 struct Ctx {
+    pal: Option<colors::Pal>,
     st: Store,
     ev: Eval,
     nvm_dir: String,
@@ -52,6 +54,7 @@ fn main() {
         format!("{}/.nvm", env::var("HOME").unwrap_or_default())
     });
     let mut cx = Ctx {
+        pal: colors::detect(&args),
         st: Store { dir: PathBuf::from(&nvm_dir) },
         ev: Eval { shell: env::var("NVM_SHELL").unwrap_or_else(|_| "bash".into()), buf: String::new() },
         nvm_dir,
@@ -129,6 +132,29 @@ fn run(cx: &mut Ctx, args: &[String]) -> i32 {
         "uninstall" => cmd_uninstall(cx, rest),
         "exec" => cmd_exec(cx, rest),
         "run" => cmd_run(cx, rest),
+        "set-colors" => {
+            let a = rest.first().map(String::as_str).unwrap_or("");
+            if !colors::valid_codes(&a.chars().take(5).collect::<String>()) || a.chars().count() < 5 {
+                eprint!("{HELP}");
+                eprintln!("\x1b[1;37mPlease pass in five \x1b[1;31mvalid color codes\x1b[1;37m. Choose from: rRgGbBcCyYmMkKeW\x1b[0m");
+                return 0;
+            }
+            let c5: String = a.chars().take(5).collect();
+            cx.ev.export("NVM_COLORS", &c5);
+            println!("Setting colors to: {}", c5.chars().map(String::from).collect::<Vec<_>>().join(" "));
+            if cx.pal.is_none() {
+                println!("WARNING: Colors may not display because they are not supported in this shell.");
+            }
+            0
+        }
+        "unload" => {
+            let _ = cmd_deactivate(cx, &["--silent".to_string()]);
+            cx.ev.buf += &if cx.ev.shell == "fish" { "functions -e nvm\n".to_string() } else { "unset -f nvm nvm_find_up nvm_find_nvmrc nvm_ls_current nvm_version nvm_rc_version 2>/dev/null\n".to_string() };
+            for v in ["NVM_NODEJS_ORG_MIRROR", "NVM_IOJS_ORG_MIRROR", "NVM_DIR", "NVM_CD_FLAGS", "NVM_BIN", "NVM_INC", "NVM_MAKE_JOBS", "NVM_INSTALL_LOCK", "NVM_COLORS", "NVM_CORE"] {
+                cx.ev.unset(v);
+            }
+            0
+        }
         "__auto" => cmd_auto(cx, rest),
         other => {
             let _ = other;
@@ -471,16 +497,40 @@ fn cmd_unalias(cx: &mut Ctx, rest: &[String]) -> i32 {
     0
 }
 
-fn print_alias(cx: &Ctx, name: &str, dest: &str) {
+fn alias_line(cx: &Ctx, name: &str, dest: &str, implicit: bool) -> String {
+    let path = env::var("PATH").unwrap_or_default();
+    let cur = cx.st.ls_current(&path);
     let resolved = cx.st.version(dest).unwrap_or_else(|e| e.to_string());
-    let star = if cx.st.is_installed(&resolved) { " *" } else { "" };
+    let status = |v: &str| -> usize {
+        if v == "N/A" || v == "∞" || !cx.st.is_installed(v) {
+            4
+        } else if v == cur {
+            3
+        } else {
+            1
+        }
+    };
+    let colour = cx.pal.is_some();
+    let arrow = colors::paint(&cx.pal.as_ref().map(|_| colors::Pal(["0;90".into(), String::new(), String::new(), String::new(), String::new(), String::new()])), 1, "->");
+    let arrow = if colour { arrow } else { "->".into() };
+    let name_c = if name.starts_with("lts/") { 6 } else { status(&resolved) };
+    let dest_c = if dest.starts_with("lts/") { 6 } else { status(&resolved) };
+    let star = if !colour && cx.st.is_installed(&resolved) { " *" } else { "" };
+    let mut out = format!("{} {arrow} {}", colors::paint(&cx.pal, name_c, name), colors::paint(&cx.pal, dest_c, dest));
     if resolved == dest {
-        println!("{name} -> {dest}{star}");
+        out += star;
     } else {
-        println!("{name} -> {dest} (-> {resolved}{star})");
+        out += &format!(" ({arrow} {}{star})", colors::paint(&cx.pal, status(&resolved), &resolved));
     }
+    if implicit {
+        out += &if colour { format!(" {}", colors::paint(&cx.pal, 5, "(default)")) } else { " (default)".to_string() };
+    }
+    out
 }
 
+fn print_alias(cx: &Ctx, name: &str, dest: &str) {
+    println!("{}", alias_line(cx, name, dest, false));
+}
 fn walk_aliases(dir: &std::path::Path, prefix: &str, out: &mut Vec<String>) {
     for e in fs::read_dir(dir).into_iter().flatten().flatten() {
         let n = e.file_name().to_string_lossy().into_owned();
@@ -500,7 +550,7 @@ fn list_aliases(cx: &Ctx, pat: Option<&str>) {
     let p = pat.unwrap_or("");
     let (lts, user): (Vec<_>, Vec<_>) = names.into_iter().partition(|n| n.starts_with("lts/"));
     let user: Vec<String> = user.into_iter().filter(|n| n.starts_with(p)).collect();
-    let lts: Vec<String> = lts.into_iter().filter(|n| n.starts_with(p)).collect();
+    let lts: Vec<String> = lts.into_iter().filter(|n| n["lts/".len()..].starts_with(p)).collect();
     for n in &user {
         if let Some(t) = cx.st.read_alias(n) {
             print_alias(cx, n, &t);
@@ -517,21 +567,19 @@ fn list_aliases(cx: &Ctx, pat: Option<&str>) {
             unstable = Some(format!("{maj}.{min}"));
         }
     }
+    let lines = std::cell::RefCell::new(Vec::<String>::new());
     let implicit = |name: &str, val: Option<String>| {
         if has(name) || (pat.is_some() && name != p) {
             return;
         }
         match val {
-            None => println!("{name} -> N/A (default)"),
-            Some(d) => {
-                let r = cx.st.version(&d).unwrap_or_else(|e| e.to_string());
-                let star = if cx.st.is_installed(&r) { " *" } else { "" };
-                if r == d {
-                    println!("{name} -> {d}{star} (default)");
-                } else {
-                    println!("{name} -> {d} (-> {r}{star}) (default)");
-                }
+            None => {
+                let c = cx.pal.is_some();
+                let arrow = if c { colors::paint(&Some(colors::Pal(["0;90".into(), String::new(), String::new(), String::new(), String::new(), String::new()])), 1, "->") } else { "->".into() };
+                let tail = if c { colors::paint(&cx.pal, 5, "(default)") } else { "(default)".into() };
+                lines.borrow_mut().push(format!("{} {arrow} {} {tail}", colors::paint(&cx.pal, 4, name), colors::paint(&cx.pal, 4, "N/A")));
             }
+            Some(d) => lines.borrow_mut().push(alias_line(cx, name, &d, true)),
         }
     };
     implicit("iojs", None);
@@ -540,6 +588,11 @@ fn list_aliases(cx: &Ctx, pat: Option<&str>) {
         implicit("stable", stable);
     }
     implicit("unstable", unstable);
+    let mut ls = lines.into_inner();
+    ls.sort();
+    for l in ls {
+        println!("{l}");
+    }
     for n in &lts {
         if let Some(t) = cx.st.read_alias(n) {
             print_alias(cx, n, &t);
@@ -572,17 +625,19 @@ fn cmd_ls(cx: &mut Ctx, rest: &[String]) -> i32 {
         None => cx.st.installed().into_iter().map(|x| x.1).collect(),
     };
     if list.is_empty() {
-        println!("{:>15}{}", "N/A", if pat.is_none() { " *" } else { "" });
+        let na = format!("{:>15}", "N/A");
+        println!("{na}{}", if pat.is_none() { " *" } else { "" });
         if pat.is_none() && !no_alias {
             list_aliases(cx, None);
         }
         return 3;
     }
     for v in &list {
-        if *v == cur {
-            println!("->{v:>13} *");
+        let (txt, ci) = if *v == cur { (format!("->{v:>13}"), 3) } else { (format!("{v:>15}"), 1) };
+        if cx.pal.is_some() {
+            println!("{}", colors::paint(&cx.pal, ci, &txt));
         } else {
-            println!("{v:>15} *");
+            println!("{txt} *");
         }
     }
     if pat.is_none() && !no_alias {
@@ -668,7 +723,7 @@ fn cmd_ls_remote(cx: &mut Ctx, rest: &[String]) -> i32 {
     }
     let mut out = String::new();
     for r in sel {
-        out += &remote::format_row(r, cx.st.is_installed(&r.ver), r.ver == cur, true);
+        out += &remote::format_row(r, cx.st.is_installed(&r.ver), r.ver == cur, &cx.pal);
         out.push('\n');
     }
     print!("{out}");
