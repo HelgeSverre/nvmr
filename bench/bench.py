@@ -20,6 +20,7 @@ import random
 import re
 import shlex
 import shutil
+import socket
 import statistics
 import subprocess
 import sys
@@ -265,7 +266,7 @@ SHELLS = {"bash": "bash", "zsh": "zsh"}
 HYPERFINE = shutil.which("hyperfine") or "hyperfine"  # resolved with the caller's PATH, run with the fixed one
 
 
-def matrix(root: Path, p: dict[str, str], quick: bool) -> list[Bench]:
+def matrix(root: Path, p: dict[str, str], quick: bool, mirror: str) -> list[Bench]:
     A, B = p["NODE_A"], p["NODE_B"]
     amaj, bmaj = A.lstrip("v").split(".")[0], B.lstrip("v").split(".")[0]
     out: list[Bench] = []
@@ -367,10 +368,10 @@ def matrix(root: Path, p: dict[str, str], quick: bool) -> list[Bench]:
             for tool, cfg in (("nvm", "nvm-nouse"), ("fast", "fast-nouse"), ("fnm", "fnm")):
                 state = root / ("fnm" if tool == "fnm" else tool)
                 if tool == "fnm":
-                    script = f"FNM_NODE_DIST_MIRROR=http://127.0.0.1:{MIRROR_PORT} fnm install {B} >/dev/null 2>&1"
+                    script = f"FNM_NODE_DIST_MIRROR={mirror} fnm install {B} >/dev/null 2>&1"
                     prep = f"rm -rf {state}/node-versions/{B}"
                 else:
-                    script = f"NVM_NODEJS_ORG_MIRROR=http://127.0.0.1:{MIRROR_PORT} nvm install {B} >/dev/null 2>&1"
+                    script = f"NVM_NODEJS_ORG_MIRROR={mirror} nvm install {B} >/dev/null 2>&1"
                     prep = f"rm -rf {state}/versions/node/{B} {state}/.cache"
                 out.append(Bench(f"install/{s}/{tool}", "install", tool, shell_cmd(s, cfg, root, script),
                                  prepare=prep, slow=True,
@@ -378,7 +379,6 @@ def matrix(root: Path, p: dict[str, str], quick: bool) -> list[Bench]:
     return out
 
 
-MIRROR_PORT = 8765
 SLOW_RUN_S = 0.3  # above this per run, a benchmark gets 5-20 runs instead of 50-300
 
 # --------------------------------------------------------------------------------------------- run
@@ -434,6 +434,22 @@ def environment(root: Path, a: argparse.Namespace) -> dict:
     }
 
 
+def free_port() -> int:
+    with socket.socket() as s:
+        s.bind(("127.0.0.1", 0))
+        return s.getsockname()[1]
+
+
+def wait_for_port(port: int) -> None:
+    for _ in range(50):
+        try:
+            socket.create_connection(("127.0.0.1", port), timeout=0.1).close()
+            return
+        except OSError:
+            time.sleep(0.1)
+    raise SystemExit(f"mirror server did not start on port {port}")
+
+
 def noisy(meta: dict) -> bool:
     """The 1-minute load exceeded a quarter of the CPUs it is averaged over (the whole machine or VM, even when
     the benchmark is pinned to fewer CPUs) before the run or any round."""
@@ -473,7 +489,8 @@ def cmd_run(a: argparse.Namespace) -> None:
     out = Path(a.out).resolve()
     (out / "raw").mkdir(parents=True, exist_ok=True)
     p = pins()
-    benches = matrix(root, p, a.quick)
+    port = free_port()
+    benches = matrix(root, p, a.quick, f"http://127.0.0.1:{port}")
     if a.filter:
         rx = re.compile(a.filter)
         keep = {b.id for b in benches if rx.search(b.id)}
@@ -489,9 +506,9 @@ def cmd_run(a: argparse.Namespace) -> None:
 
     server = None
     if any(b.group == "install" for b in benches):
-        server = subprocess.Popen([sys.executable, "-m", "http.server", str(MIRROR_PORT), "--bind", "127.0.0.1",
+        server = subprocess.Popen([sys.executable, "-m", "http.server", str(port), "--bind", "127.0.0.1",
                                    "-d", str(root / "mirror")], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-        time.sleep(1)
+        wait_for_port(port)
     try:
         print(f"checking {len(benches)} benchmarks measure what they claim ...")
         for b in benches:
