@@ -230,3 +230,73 @@ pub fn find_nvmrc(start: &Path) -> Option<PathBuf> {
     }
     None
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn tmp(name: &str) -> Store {
+        let d = std::env::temp_dir().join(format!("nvmcore-test-{name}-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&d);
+        fs::create_dir_all(d.join("alias/lts")).unwrap();
+        for v in ["v18.20.8", "v20.1.0", "v20.11.1", "v22.12.0", "v22.2.0"] {
+            let b = d.join("versions/node").join(v).join("bin");
+            fs::create_dir_all(&b).unwrap();
+            fs::write(b.join("node"), "").unwrap();
+        }
+        Store { dir: d }
+    }
+
+    #[test]
+    fn nvmrc_parsing() {
+        assert_eq!(parse_nvmrc("20\n").unwrap(), "20");
+        assert_eq!(parse_nvmrc("# c\nlts/iron # t\n").unwrap(), "lts/iron");
+        assert_eq!(parse_nvmrc("foo=bar\n20\n").unwrap(), "20");
+        assert!(parse_nvmrc("node=1\n20\n").is_err());
+        assert!(parse_nvmrc("a=1\na=2\n20\n").is_err());
+        assert!(parse_nvmrc("20\n22\n").is_err());
+        assert!(parse_nvmrc("").is_err());
+        assert_eq!(parse_nvmrc("=weird\n").unwrap(), "=weird");
+    }
+
+    #[test]
+    fn partial_matching_is_numeric_and_prefix_safe() {
+        let st = tmp("partial");
+        assert_eq!(st.match_partial("2"), None, "2 must not match 20 or 22");
+        assert_eq!(st.match_partial("20").as_deref(), Some("v20.11.1"));
+        assert_eq!(st.match_partial("v22").as_deref(), Some("v22.12.0"));
+        assert_eq!(st.match_partial("22.2").as_deref(), Some("v22.2.0"));
+        assert_eq!(st.match_partial("20.1").as_deref(), Some("v20.1.0"));
+        assert_eq!(st.version("node").as_deref(), Ok("v22.12.0"));
+        assert_eq!(st.version("9"), Err("N/A"));
+        let _ = fs::remove_dir_all(&st.dir);
+    }
+
+    #[test]
+    fn alias_chains_and_cycles() {
+        let st = tmp("alias");
+        fs::write(st.dir.join("alias/a"), "b\n").unwrap();
+        fs::write(st.dir.join("alias/b"), "20 # note\n").unwrap();
+        fs::write(st.dir.join("alias/x"), "y\n").unwrap();
+        fs::write(st.dir.join("alias/y"), "x\n").unwrap();
+        assert_eq!(st.resolve_alias("a").as_deref(), Some("v20"));
+        assert_eq!(st.version("a").as_deref(), Ok("v20.11.1"));
+        assert_eq!(st.resolve_alias("x").as_deref(), Some("∞"));
+        assert_eq!(st.version("x"), Err("∞"));
+        assert_eq!(st.resolve_alias("nothing"), None);
+        fs::write(st.dir.join("alias/lts/hydrogen"), "v18.20.8\n").unwrap();
+        fs::write(st.dir.join("alias/lts/iron"), "v20.11.1\n").unwrap();
+        assert_eq!(st.resolve_alias("lts/-1").as_deref(), Some("v18.20.8"));
+        assert_eq!(st.version("lts/-1").as_deref(), Ok("v18.20.8"));
+        let _ = fs::remove_dir_all(&st.dir);
+    }
+
+    #[test]
+    fn version_parsing() {
+        assert_eq!(parse_ver("v1.2.3"), Some((1, 2, 3)));
+        assert_eq!(parse_ver("1.2"), None);
+        assert!(parse_ver("v10.0.0") > parse_ver("v9.9.9"));
+        assert_eq!(ensure_v("20"), "v20");
+        assert_eq!(ensure_v("lts/iron"), "lts/iron");
+    }
+}
