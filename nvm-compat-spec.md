@@ -23,7 +23,7 @@ Non-goals (explicitly dropped): Windows/MSYS/Cygwin, SunOS, AIX, OpenBSD, FreeBS
 
 - **`nvm-core`** (name is internal; install as `$NVM_DIR/nvm-core` or `/usr/local/bin/nvm-core`) does everything: resolution, download, extraction, printing. Stdout/stderr carry exactly what upstream prints.
 - **`nvm-fetch`**: a second binary holding the HTTPS/TLS/extraction code, spawned by `nvm-core` for `install`, `ls-remote` and `version-remote`, so that `nvm-core` never links `Security.framework`/`CoreFoundation` and starts in < 2 ms (§13.2).
-- **Eval channel**: the function passes a path in `NVM_EVAL_FILE` (an `mktemp` file). `nvm-core` writes shell statements there in the dialect named by `NVM_SHELL` (`sh`, `bash`, `zsh`, `fish`). After the binary exits, the function sources the file and deletes it. The file is never written when nothing changed. (Alternative: fd 3 — upstream already uses `3>&1` for `nvm_rc_version`; fd 3 is fine for POSIX shells but fish can't `exec 3>` cleanly, so the file protocol is the one true protocol.)
+- **Eval channel**: the function passes `NVM_EVAL_FILE=$NVM_DIR/.cache/eval.$$` (one file per shell process). `nvm-core` writes shell statements there in the dialect named by `NVM_SHELL` (`sh`, `bash`, `zsh`, `fish`) and creates the directory if needed. After the binary exits, the function sources the file and truncates it with the `:` builtin. No `mktemp` or `rm` is spawned, so every `nvm` call costs exactly one process. `nvm-core` truncates stale content when it has nothing to write and prunes `eval.*` files older than a day. The file is never written when nothing changed. (Alternative: fd 3 — upstream already uses `3>&1` for `nvm_rc_version`; fd 3 is fine for POSIX shells but fish can't `exec 3>` cleanly, so the file protocol is the one true protocol.)
 - Emitted statements are limited to a small grammar: `export VAR=value`, `unset VAR`, `hash -r` (POSIX) / `rehash` (zsh) / `set -gx VAR value` + `set -e VAR` (fish). Values are single-quoted with `'\''` escaping; never interpolate unescaped.
 
 ### 1.2 The shell function (reference, POSIX sh/bash/zsh)
@@ -99,7 +99,7 @@ Every `<version>` argument is one of:
 | `iojs`, `io.js` | | Highest io.js. |
 | `lts/*` | | Newest LTS line. |
 | `lts/<name>` | `lts/iron` | That LTS line's newest release. **Must be lowercase** → else `LTS names must be lowercase`, rc 3. |
-| `lts/-N` | `lts/-1` | N-th newest LTS line (1 = newest), by alphabetical order of `alias/lts/` (codenames are alphabetical by design). Beyond range → `That many LTS releases do not exist yet.`, rc 2. |
+| `lts/-N` | `lts/-1` | The line N places **before** the newest (`lts/-1` = second newest, verified against upstream), by alphabetical order of `alias/lts/` (codenames are alphabetical by design). Beyond range → `That many LTS releases do not exist yet.`, rc 2. |
 | `<alias>` | `default`, `myproj` | A file under `alias/`; followed transitively. |
 | `iojs-vX.Y.Z` | | io.js exact. |
 | `.nvmrc` content | | Any string containing `#` or a newline passed to the resolver is parsed as `.nvmrc` content first (`nvm_ls` does this). |
@@ -436,7 +436,7 @@ Sourcing `nvm.sh` accepts `--no-use` and `--install`:
 - `--install`: same but `nvm install <default>` / `nvm install` (quiet).
 - `--no-use`: nothing.
 
-The native `nvm.sh` keeps that interface and implements it as `nvm-core __auto <mode>` through the eval channel.
+The native `nvm.sh` keeps that interface and implements it as `nvm-core __auto use|install` through the eval channel. Two distinct semantics exist and are separate sub-commands: `__auto use` is the source-time algorithm above (default alias, else `.nvmrc`, else re-assert the current nvm version); `__auto cd` is the directory-change hook (`.nvmrc` found up the tree, else `default`; no-op when already active). The zsh/bash/fish hooks in §9.4 call `__auto cd`.
 
 ### 9.2 Installing
 
@@ -470,11 +470,11 @@ export NVM_LAZY=1                      # optional
 Auto-switch on `cd` (upstream recipe, ported to one binary call):
 ```zsh
 autoload -U add-zsh-hook
-_nvm_auto_use() { nvm __auto use --silent 2>/dev/null; }
+_nvm_auto_use() { nvm __auto cd 2>/dev/null; }
 add-zsh-hook chpwd _nvm_auto_use
 _nvm_auto_use
 ```
-(`__auto use` with a `.nvmrc` in `$PWD` ancestry uses it; without one, reverts to `default` — exactly the upstream `load-nvmrc` semantics: "Reverting to nvm default version". The native command performs that comparison itself so the hook is one process spawn, ~3 ms.)
+(`__auto cd` with a `.nvmrc` in `$PWD` ancestry uses it; without one, reverts to `default` — exactly the upstream `load-nvmrc` semantics: "Reverting to nvm default version". The native command performs that comparison itself so the hook is one process spawn, ~3 ms.)
 
 **bash** — `~/.bashrc` (macOS: `~/.bash_profile` must source `~/.bashrc` or contain the lines itself):
 ```bash
@@ -482,7 +482,7 @@ export NVM_DIR="$HOME/.nvm"
 [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
 [ -s "$NVM_DIR/bash_completion" ] && \. "$NVM_DIR/bash_completion"
 ```
-Auto-switch: wrap `cd` as upstream's `cdnvm` does, but call `nvm __auto use --silent` after `builtin cd`. The upstream `cdnvm` function (README "Calling nvm use automatically") must keep working unmodified: it uses `nvm_find_up`, `nvm version`, `nvm use`, `nvm install` — so **`nvm_find_up` must remain a shell function** (trivial: the native `nvm.sh` defines `nvm_find_up`, `nvm_find_nvmrc`, `nvm_rc_version`, `nvm_ls_current`, `nvm_version` as one-line wrappers around `nvm-core __fn <name> "$@"`).
+Auto-switch: wrap `cd` as upstream's `cdnvm` does, but call `nvm __auto cd` after `builtin cd`. The upstream `cdnvm` function (README "Calling nvm use automatically") must keep working unmodified: it uses `nvm_find_up`, `nvm version`, `nvm use`, `nvm install` — so **`nvm_find_up` must remain a shell function** (trivial: the native `nvm.sh` defines `nvm_find_up`, `nvm_find_nvmrc`, `nvm_rc_version`, `nvm_ls_current`, `nvm_version` as one-line wrappers around `nvm-core __fn <name> "$@"`).
 
 **fish** — upstream has no fish support; the native version does. `~/.config/fish/conf.d/nvm.fish`:
 ```fish
@@ -497,7 +497,7 @@ function nvm
 end
 nvm __auto use --silent
 ```
-Auto-switch: `function __nvm_cd --on-variable PWD; nvm __auto use --silent; end`. The binary emits `set -gx PATH …` (fish's PATH is a list — emit it as space-separated quoted items), `set -e MANPATH`, etc. Completions: `nvm __complete fish` prints a `complete -c nvm …` file; install it to `~/.config/fish/completions/nvm.fish`.
+Auto-switch: `function __nvm_cd --on-variable PWD; nvm __auto cd; end`. The binary emits `set -gx PATH …` (fish's PATH is a list — emit it as space-separated quoted items), `set -e MANPATH`, etc. Completions: `nvm __complete fish` prints a `complete -c nvm …` file; install it to `~/.config/fish/completions/nvm.fish`.
 
 **Non-interactive shells / CI**: `BASH_ENV`-style sourcing works unchanged. `nvm-exec` needs no shell at all.
 
@@ -544,6 +544,32 @@ New (native only): `NVM_EVAL_FILE`, `NVM_SHELL`, `NVM_LAZY`, `NVM_LAZY_CMDS`, `N
 | `nvm unalias` missing alias rc 0 | kept | compat |
 | io.js/0.x source builds | not exercised | out of scope; code path kept but untested |
 | Windows/SunOS/AIX/*BSD | not built | mac-first; `nvm_get_os` only knows `darwin`/`linux` |
+
+
+### 12.1 Upstream quirks reproduced on purpose (verified byte-for-byte against v0.40.8)
+
+| Behaviour | Detail |
+|---|---|
+| `ls-remote <pattern>` exit code | Exits **3** whenever a positional pattern is given without `--lts`, even when rows were printed (`node` excepted). With `--lts[=x]` it exits 0. |
+| `ls-remote` rows | The unfiltered list also contains io.js releases (`iojs-vX.Y.Z`, from the io.js index) merged by number; `ls-remote node` lists node only. |
+| `ls-remote` / `version-remote` on fetch failure | Any network error, 404 or invalid mirror yields an empty list, not an error: `N/A`, rc 3. An invalid mirror additionally prints `$NVM_NODEJS_ORG_MIRROR and $NVM_IOJS_ORG_MIRROR may only contain a URL`. |
+| `ls-remote` padding | No trailing spaces on plain rows. An LTS annotation is preceded by two spaces when the row is not installed; installed rows carry ` *` instead. |
+| `N/A` row | `ls` with nothing installed prints `N/A *`; `ls <pattern>` prints `N/A`; `ls-remote <numeric pattern>` prints `N/A *`; `ls-remote` with an LTS filter or a non-version pattern prints plain `N/A`. |
+| `version-remote lts/Iron` | Prints `LTS names must be lowercase` twice plus a blank line and exits **0**. |
+| `use --lts` when the newest LTS is not installed | Silent, rc 3 (no message). `use lts/*` prints the full not-installed message. |
+| Not-installed message | `N/A: version "<arg> -> <resolved alias target>" is not yet installed.` The target comes from the alias chain, not from `nvm_version`. |
+| `.nvmrc` validation | A `node=` key and duplicate keys are invalid; invalid or empty files print the long `invalid .nvmrc!` block, then ``Please see `nvm --help` ...``, rc 127. |
+| `exec`/`run` with `.nvmrc` | Print `Found '<path>/.nvmrc' with version <X>` before `Running node ...`. `run` with a first argument that is not version-ish falls back to `.nvmrc`, then to `current` with the deprecation warning. |
+| `default-packages` | Upstream's awk joins accepted lines with a leading space for any line after file line 1, so the echoed command is `npm install -g --quiet  pkg` (two spaces). Any line containing whitespace (even leading) is an error. |
+| `reinstall-packages <unresolvable>` | Prints the not-installed message for `N/A`, then the four `Reinstalling…/No … found…` lines, rc 0. |
+| `--reinstall-packages-from` | Checked before the "already installed" notice; for an already installed target it delegates to `reinstall-packages` (rc 2 `Can not reinstall packages from the current version of node.`). The rc 4 same-version error only applies to fresh installs. |
+| `deactivate` text | `<expanded $NVM_DIR>/*/bin removed from ${PATH}` (directory expanded, `${PATH}` literal); also reports `share/man` (stderr when absent) and `lib/node_modules`. |
+| `MANPATH` | Managed only when a `manpath` executable exists; an empty entry is appended so `man` keeps its defaults. |
+| Implicit alias order | The `iojs`, `node`, `stable`, `unstable` lines are **sorted as text including colour escapes**, so with colour on the unresolved (red) ones sort first. `stable` is omitted when no version qualifies; `alias <name>` filters user aliases by prefix and `lts/<pattern>` entries by the part after `lts/`. |
+| Prefix guard | Runs after the environment is already mutated; failures return 11 and leave `PATH` changed except for the `PREFIX`/`NPM_CONFIG_PREFIX` cases, which deactivate. `--silent` does not silence it. |
+| `install --default` with `--alias` or a repeat | `--default and --alias are mutually exclusive, and may not be provided more than once` (rc 6). |
+| `---flag` | Only `install` rejects it (``arguments with `---` are not supported - this is likely a typo``, rc 55); other commands ignore unknown flags. |
+| Third-party hook | Prints `** $NVM_INSTALL_THIRD_PARTY_HOOK env var set; dispatching to third-party installation method **` first; a hook that exits 0 without installing gives `…claimed to succeed, but failed to install!`, rc 33. |
 
 ---
 
@@ -711,3 +737,15 @@ Local numbers: Apple M2 Max, same hot-path program in each language (read `alias
 | Tests | `cargo test` units + golden harness + upstream urchin suites (§11) + `bench/` gate (§13.3) | |
 
 Revisit trigger for this decision: a MUST in §13.2 that cannot be met in Rust after profiling, or Zig/Swift closing the proxy/CA/static-Linux gaps listed above.
+
+
+---
+
+## 15. Implementation status (2026-10-22)
+
+Implemented in Rust (`src/`), verified on Linux (arm64) inside Docker against upstream nvm v0.40.8 with `scripts/verify.sh` (clean build, 8 unit tests, ~220 compared commands, colour, bash, zsh, fish, portability):
+resolution (§3–4), PATH/MANPATH/NODE_PATH editing and the prefix guard (§5), every command in §6 except source builds (`install -s` and the source fallback print an explanatory message), `.nvmrc`, aliases, LTS maintenance, offline installs, install locks, third-party hook, `default-packages`, `--latest-npm`, `reinstall-packages`, colours and `set-colors`, `debug`, `unload`, system node, lazy mode, `nvm-exec`, installer, fish integration, static musl bundle.
+
+Measured (Linux arm64 VM, medians): `nvm-core` hot commands 0.2–0.4 ms (budget 2–3 ms); `source nvm.sh` with auto-use 2.9 ms bash / 4.7 ms zsh versus 138 / 240 ms upstream; `nvm use` in a fresh shell 1.0 ms versus 67 ms; `nvm ls` with 122 versions 1.2 ms versus 670–2,063 ms. Static musl binaries: `nvm-core` 0.66 MB, `nvm-fetch` 1.97 MB. The glibc-dynamic `nvm-core` makes 93 syscalls on the `__auto use` path (budget 80); the static build was not re-measured.
+
+Not done: macOS build and measurements (the Security.framework startup budget in §13.2 is unverified); source builds; io.js installation; `NVM_AUTH_HEADER` is wired but untested; signal handling during downloads (partial tarballs are kept for resume, but Ctrl-C does not clean `files/`); upstream's urchin test suite (its tests call internal shell functions that the native build intentionally does not define).
