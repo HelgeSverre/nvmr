@@ -254,6 +254,11 @@ fn cmd_version(cx: &mut Ctx, rest: &[String]) -> i32 {
             println!("{v}");
             0
         }
+        // upstream prints a cycle's `∞` as a version and succeeds
+        Err(e @ "∞") => {
+            println!("{e}");
+            0
+        }
         Err(e) => {
             println!("{e}");
             3
@@ -816,6 +821,7 @@ fn cmd_alias(cx: &mut Ctx, rest: &[String]) -> i32 {
             0
         }
         Some(pat) if pat.starts_with("lts/") => {
+            ensure_lts_alias_dir(cx);
             if let Some(t) = cx.st.read_alias(&pat) {
                 println!("{t}");
                 0
@@ -963,7 +969,13 @@ fn walk_aliases(dir: &Path, prefix: &str, out: &mut Vec<String>) {
     }
 }
 
+/// Upstream's `nvm_list_aliases` creates `alias/lts` before listing anything (errors ignored here).
+fn ensure_lts_alias_dir(cx: &Ctx) {
+    let _ = fs::create_dir_all(cx.st.dir.join("alias/lts"));
+}
+
 fn list_aliases(cx: &Ctx, pat: Option<&str>) {
+    ensure_lts_alias_dir(cx);
     let mut names = vec![];
     walk_aliases(&cx.st.dir.join("alias"), "", &mut names);
     names.sort();
@@ -980,21 +992,19 @@ fn list_aliases(cx: &Ctx, pat: Option<&str>) {
         }
     }
     let has = |n: &str| user.iter().any(|u| u == n);
-    let inst = cx.st.installed_flavour(true, false);
     let iojs = cx
         .st
         .installed_flavour(false, true)
         .pop()
         .map(|((maj, min, _), _)| format!("iojs-v{maj}.{min}"));
-    let mut stable = None;
-    let mut unstable = None;
-    for ((maj, min, _), _) in &inst {
-        if *maj >= 1 || min % 2 == 0 {
-            stable = Some(format!("{maj}.{min}"));
-        } else {
-            unstable = Some(format!("{maj}.{min}"));
-        }
-    }
+    let stable = cx
+        .st
+        .implicit_minor(true)
+        .map(|(maj, min)| format!("{maj}.{min}"));
+    let unstable = cx
+        .st
+        .implicit_minor(false)
+        .map(|(maj, min)| format!("{maj}.{min}"));
     let lines = std::cell::RefCell::new(Vec::<String>::new());
     let implicit = |name: &str, val: Option<String>| {
         if has(name) || (pat.is_some() && name != p) {
@@ -1088,18 +1098,25 @@ fn cmd_ls(cx: &mut Ctx, rest: &[String]) -> i32 {
                 _ if numeric => cx.st.matching(p),
                 _ => match cx.st.version(p) {
                     Ok(v) if cx.st.is_installed(&v) => vec![v],
+                    Err("∞") => {
+                        // upstream lists a cycle as an uninstalled `∞` row and succeeds;
+                        // its `printf %15s` pads by bytes, and `∞` is three
+                        println!("{:>13}", "∞");
+                        return 0;
+                    }
                     _ => vec![],
                 },
             }
         }
         None => cx.st.installed().into_iter().map(|x| x.1).collect(),
     };
-    let want_system = pat.is_none_or(|p| p == "system") && cx.st.system_node().is_some();
-    let list: Vec<String> = if pat.is_some_and(|p| p == "system") {
-        vec![]
-    } else {
-        list
-    };
+    // `system`, or an alias chain ending at it, lists only the system row; the unfiltered listings
+    // (`ls`, `ls node`, `ls v`) append it.
+    let system_only =
+        pat.is_some_and(|p| p == "system" || cx.st.resolve_alias(p).as_deref() == Some("system"));
+    let want_system = (system_only || pat.is_none_or(|p| p == "node" || p == "v"))
+        && cx.st.system_node().is_some();
+    let list = if system_only { vec![] } else { list };
     let sys_row = |cx: &Ctx| {
         let sv = cx.st.system_version().unwrap_or_default();
         let txt = if cur == "system" {
@@ -1263,19 +1280,13 @@ fn cmd_exec_internal(cx: &mut Ctx, rest: &[String]) -> i32 {
             }
         }
     } else {
-        let rc = find_nvmrc(&env::current_dir().unwrap_or_default())
-            .and_then(|f| fs::read_to_string(f).ok())
-            .and_then(|c| parse_nvmrc(&c).ok());
-        match rc {
-            Some(v) => match cx.st.version(&v) {
-                Ok(r) if cx.st.is_installed(&r) => Ok(r),
-                _ => {
-                    not_installed(cx, &v, true);
-                    Err(())
-                }
-            },
-            None => Err(()),
-        }
+        rc_version(false).and_then(|v| match cx.st.version(&v) {
+            Ok(r) if cx.st.is_installed(&r) => Ok(r),
+            _ => {
+                not_installed(cx, &v, true);
+                Err(())
+            }
+        })
     };
     if let Ok(v) = sel {
         run_with(cx, &v, rest)
@@ -1320,24 +1331,31 @@ fn cmd_ls_remote(cx: &mut Ctx, rest: &[String]) -> i32 {
         Ok(x) => x,
         Err(c) => return c,
     };
-    let mut rows = match remote::index(&cx.st) {
+    let rows = match remote::index(&cx.st) {
         Ok(r) => r,
         Err(c) => return c,
     };
-    let node_empty = rows.is_empty();
-    if pat.is_none() && lts.is_none() {
-        if let Ok(mut io) = remote::iojs_rows() {
-            rows.append(&mut io);
-            remote::sort_rows(&mut rows);
-        }
-    }
     let cur = cx.st.ls_current(&env::var("PATH").unwrap_or_default());
     let node_alias = pat.as_deref() == Some("node");
-    let sel = remote::filter(
-        &rows,
-        lts.as_deref(),
-        if node_alias { None } else { pat.as_deref() },
-    );
+    let pat_filter = if node_alias { None } else { pat.as_deref() };
+    let mut sel = remote::filter(&rows, lts.as_deref(), pat_filter);
+    // Upstream merges io.js releases into every non-LTS listing except `ls-remote node`, and its exit code
+    // is node's when that failed, else io.js's: 3 whenever no io.js release matches (e.g. `ls-remote 22`).
+    let mut rc = if sel.is_empty() { 3 } else { 0 };
+    let iojs_wanted = lts.is_none() && !node_alias;
+    let iojs = if iojs_wanted {
+        remote::iojs_rows().unwrap_or_default()
+    } else {
+        vec![]
+    };
+    if iojs_wanted {
+        let io = remote::filter(&iojs, None, pat_filter);
+        if rc == 0 && io.is_empty() {
+            rc = 3;
+        }
+        sel.extend(io);
+        sel.sort_by_key(|r| remote::key(&r.ver));
+    }
 
     if sel.is_empty() {
         let star =
@@ -1351,12 +1369,7 @@ fn cmd_ls_remote(cx: &mut Ctx, rest: &[String]) -> i32 {
         out.push('\n');
     }
     print!("{out}");
-    // Upstream quirk (v0.40.8): a positional pattern without --lts exits 3 even on success.
-    if node_empty || (pat.is_some() && lts.is_none() && !node_alias) {
-        3
-    } else {
-        0
-    }
+    rc
 }
 
 fn cmd_version_remote(cx: &mut Ctx, rest: &[String]) -> i32 {
@@ -1480,41 +1493,47 @@ fn exec_core(cx: &mut Ctx, silent: bool, lts: Option<String>, mut args: Vec<Stri
     run_with(cx, &resolved, &args)
 }
 
-fn parse_exec_flags(rest: &[String]) -> Result<(bool, Option<String>, Vec<String>), i32> {
+/// Leading `--silent` / `--lts[=x]` flags of `exec` and `run`. Upstream's `exec` also rejects other `--x`
+/// options and stops at `--` without consuming it (the `--` then reaches bash's `exec`); `run` does neither.
+fn parse_exec_flags(
+    rest: &[String],
+    exec: bool,
+) -> Result<(bool, Option<String>, Vec<String>), i32> {
     let mut silent = false;
     let mut lts = None;
     let mut i = 0;
-    while i < rest.len() {
-        let a = &rest[i];
-        if a == "--silent" {
-            silent = true;
-        } else if a == "--lts" {
-            lts = Some("*".to_string());
-        } else if let Some(n) = a.strip_prefix("--lts=") {
-            lts = Some(n.to_string());
-        } else if a == "--" {
-            break;
-        } else if a.starts_with("--") {
-            eprintln!("Unsupported option \"{a}\".");
-            return Err(55);
-        } else if a.is_empty() {
-        } else {
-            break;
+    while let Some(a) = rest.get(i) {
+        match a.as_str() {
+            "--silent" => silent = true,
+            "--lts" => lts = Some("*".to_string()),
+            "" => {}
+            x if x.starts_with("--lts=") => lts = Some(x["--lts=".len()..].to_string()),
+            x if exec && x.starts_with("--") && x != "--" => {
+                eprintln!("Unsupported option \"{x}\".");
+                return Err(55);
+            }
+            _ => break,
         }
         i += 1;
     }
-    let mut tail = rest[i..].to_vec();
-    if tail.first().is_some_and(|a| a == "--") {
-        tail.remove(0);
-        // `--` ends option parsing; the next token is still the version slot
-    }
-    Ok((silent, lts, tail))
+    Ok((silent, lts, rest[i..].to_vec()))
 }
 
 fn run_with(cx: &Ctx, ver: &str, cmd: &[String]) -> i32 {
     use std::os::unix::process::CommandExt;
-    if cmd.is_empty() {
+    // Upstream runs the command with bash's `exec` on line 22 of its `nvm-exec` script; mirror bash's
+    // option handling (a leading `--` ends options, other `-x` words are invalid options) and its errors.
+    let at = format!("{}/nvm-exec: line 22", cx.nvm_dir);
+    let cmd = match cmd {
+        [first, rest @ ..] if first == "--" => rest,
+        _ => cmd,
+    };
+    let Some(c) = cmd.first() else {
         return 0;
+    };
+    if let Some(opt) = c.strip_prefix('-').and_then(|o| o.chars().next()) {
+        eprintln!("{at}: exec: -{opt}: invalid option\nexec: usage: exec [-cl] [-a name] [command [argument ...]] [redirection ...]");
+        return 2;
     }
     let vd = cx.st.version_dir(ver).to_string_lossy().into_owned();
     let path = pathedit::change_path(
@@ -1530,18 +1549,39 @@ fn run_with(cx: &Ctx, ver: &str, cmd: &[String]) -> i32 {
         .env("NVM_INC", format!("{vd}/include/node"))
         .env("NODE_VERSION", ver)
         .exec();
-    eprintln!("{}: {e}", cmd[0]);
-    127
+    match e.kind() {
+        std::io::ErrorKind::NotFound if !c.contains('/') => {
+            eprintln!("{at}: exec: {c}: not found");
+            127
+        }
+        std::io::ErrorKind::NotFound => {
+            eprintln!("{at}: {c}: No such file or directory");
+            127
+        }
+        std::io::ErrorKind::PermissionDenied => {
+            let why = if Path::new(c).is_dir() {
+                "Is a directory"
+            } else {
+                "Permission denied"
+            };
+            eprintln!("{at}: {c}: {why}\n{at}: exec: {c}: cannot execute: {why}");
+            126
+        }
+        _ => {
+            eprintln!("{at}: {c}: {e}");
+            126
+        }
+    }
 }
 
 fn cmd_exec(cx: &mut Ctx, rest: &[String]) -> i32 {
-    match parse_exec_flags(rest) {
+    match parse_exec_flags(rest, true) {
         Ok((silent, lts, tail)) => exec_core(cx, silent, lts, tail),
         Err(c) => c,
     }
 }
 fn cmd_run(cx: &mut Ctx, rest: &[String]) -> i32 {
-    let (silent, lts, mut tail) = match parse_exec_flags(rest) {
+    let (silent, lts, mut tail) = match parse_exec_flags(rest, false) {
         Ok(x) => x,
         Err(c) => return c,
     };

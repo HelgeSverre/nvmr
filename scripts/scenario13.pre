@@ -1,0 +1,2 @@
+# Same fake binary mirror as scenario12 (port 8112), for the `nvm.sh --install` cases.
+. /src/scripts/scenario12.pre

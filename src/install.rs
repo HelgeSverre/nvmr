@@ -4,10 +4,10 @@ use std::process::Command;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::{env, fs};
 
-use crate::store::{ensure_v, find_nvmrc, parse_nvmrc, parse_ver};
+use crate::store::{ensure_v, parse_ver};
 use crate::{
-    cmd_alias, cmd_unalias, cmd_use, lts_filter, npm, print_alias, remote, walk_aliases, Ctx,
-    HELP_HINT,
+    cmd_alias, cmd_unalias, cmd_use, lts_filter, npm, print_alias, rc_version, remote,
+    walk_aliases, Ctx, HELP_HINT,
 };
 
 pub fn cmd_install(cx: &mut Ctx, rest: &[String]) -> i32 {
@@ -24,9 +24,6 @@ pub fn cmd_install(cx: &mut Ctx, rest: &[String]) -> i32 {
     let mut reinstall_from: Option<String> = None;
     let mut jobs: Option<usize> = env::var("NVM_MAKE_JOBS").ok().and_then(|v| v.parse().ok());
     let mut extra: Vec<String> = vec![];
-    if env::var("NVM_NO_SOURCE_FALLBACK").is_ok_and(|v| !v.is_empty()) {
-        bin_only = true;
-    }
     let mut it = rest.iter().peekable();
     while let Some(a) = it.next() {
         match a.as_str() {
@@ -104,47 +101,38 @@ pub fn cmd_install(cx: &mut Ctx, rest: &[String]) -> i32 {
         eprintln!("-s and -b cannot be set together since they would skip install from both binary and source");
         return 6;
     }
+    // NVM_NO_SOURCE_FALLBACK=1 (exactly) behaves like `-b` on every install.
+    if !bin_only && env::var("NVM_NO_SOURCE_FALLBACK").as_deref() == Ok("1") {
+        if src_only {
+            eprintln!("-s cannot be combined with NVM_NO_SOURCE_FALLBACK=1 since that would skip install from both binary and source");
+            return 6;
+        }
+        bin_only = true;
+    }
     if set_default && alias.is_some() {
         eprintln!(
             "--default and --alias are mutually exclusive, and may not be provided more than once"
         );
         return 6;
     }
-    let mut from_rc = false;
-    if let Some(v) = version.clone() {
-        if v == "lts/*" {
-            flags_lts = Some("*".into());
-            version = None;
-        } else if let Some(n) = v.strip_prefix("lts/") {
-            flags_lts = Some(n.to_string());
-            version = None;
-        }
-    }
     if version.is_none() {
         match &flags_lts {
             Some(n) if n == "*" => println!("Installing latest LTS version."),
             Some(n) => println!("Installing with latest version of LTS line: {n}"),
-            None => {
-                let cwd = env::current_dir().unwrap_or_default();
-                let found = find_nvmrc(&cwd).and_then(|f| {
-                    let content = fs::read_to_string(&f).ok()?;
-                    Some((f, parse_nvmrc(&content)))
-                });
-                match found {
-                    Some((rcf, Ok(v))) => {
-                        println!("Found '{}' with version <{v}>", rcf.display());
-                        version = Some(v);
-                        from_rc = true;
-                    }
-                    Some((_, Err(_))) | None => {
-                        eprintln!("Usage: nvm install [<version>]\n  Provide a <version>, or run from a directory containing an .nvmrc file.\n{HELP_HINT}");
-                        return 127;
-                    }
+            None => match rc_version(false) {
+                Ok(v) => version = Some(v),
+                Err(()) => {
+                    eprintln!("Usage: nvm install [<version>]\n  Provide a <version>, or run from a directory containing an .nvmrc file.\n  {HELP_HINT}");
+                    return 127;
                 }
-            }
+            },
         }
     }
-    let _ = from_rc;
+    // upstream turns an `lts/<name>` version (argument or .nvmrc) into an LTS filter only after the messages above
+    if let Some(n) = version.as_deref().and_then(|v| v.strip_prefix("lts/")) {
+        flags_lts = Some(n.to_string());
+        version = None;
+    }
     let lts_for_resolve = match &flags_lts {
         Some(n) if n != "*" => match remote::lts_name(&cx.st, n) {
             Ok(x) => Some(x),

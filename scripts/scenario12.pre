@@ -1,0 +1,23 @@
+# Fake nodejs.org mirror on 127.0.0.1:8112 serving prebuilt linux binaries (both .tar.xz and .tar.gz)
+# for a small release line with LTS codenames; io.js index is empty. Used by scenario12.sh (fnm-derived cases).
+rm -rf /srv/d12 /tmp/mk12; mkdir -p /srv/d12/dist /srv/d12/iojs /tmp/mk12
+case "$(uname -m)" in aarch64|arm64) A12=arm64;; x86_64) A12=x64;; *) A12=$(uname -m);; esac
+R12='v23.5.0:- v22.12.0:Jod v22.11.0:Jod v20.11.1:Iron v20.10.0:Iron v18.20.4:Hydrogen v8.11.3:Carbon v6.11.3:Boron'
+printf 'version\tdate\tfiles\tnpm\tv8\tuv\tzlib\topenssl\tmodules\tlts\tsecurity\n' > /srv/d12/dist/index.tab
+for spec in $R12; do
+  ver=${spec%%:*}; lts=${spec##*:}; n=node-$ver-linux-$A12
+  mkdir -p /tmp/mk12/$n/bin /tmp/mk12/$n/lib/node_modules/npm /srv/d12/dist/$ver
+  printf '#!/bin/sh\necho %s\n' "$ver" > /tmp/mk12/$n/bin/node
+  printf '#!/bin/sh\necho 10.0.0\n' > /tmp/mk12/$n/bin/npm
+  chmod +x /tmp/mk12/$n/bin/node /tmp/mk12/$n/bin/npm
+  echo '{"version": "10.0.0"}' > /tmp/mk12/$n/lib/node_modules/npm/package.json
+  tar -C /tmp/mk12 -cJf /srv/d12/dist/$ver/$n.tar.xz $n
+  tar -C /tmp/mk12 -czf /srv/d12/dist/$ver/$n.tar.gz $n
+  (cd /srv/d12/dist/$ver && sha256sum $n.tar.xz $n.tar.gz > SHASUMS256.txt)
+  printf '%s\t2026-01-01\tlinux-%s,src\t10.0.0\t-\t-\t-\t-\t-\t%s\t-\n' "$ver" "$A12" "$lts" >> /srv/d12/dist/index.tab
+done
+printf 'version\tdate\tfiles\tnpm\tv8\tuv\tzlib\topenssl\tmodules\n' > /srv/d12/iojs/index.tab
+python3 -m http.server 8112 --bind 127.0.0.1 -d /srv/d12 >/dev/null 2>&1 &
+SRV_PID=$!  # compare.sh kills it
+sleep 1
+export NVM_NODEJS_ORG_MIRROR=http://127.0.0.1:8112/dist NVM_IOJS_ORG_MIRROR=http://127.0.0.1:8112/iojs

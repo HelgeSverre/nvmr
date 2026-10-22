@@ -53,12 +53,18 @@ cd /tmp; echo "cd /tmp: v=$(node -v)"
 tail_common='
 nvm unload; echo "unload: fn=$(type nvm 2>&1 | head -c 60) dir=${NVM_DIR-unset}"
 '
-for sh in bash zsh; do
+# zsh-opts: options and global aliases from popular zsh setups (oh-my-zsh, yadr) that break naive shell code;
+# upstream's test/sourcing covers the aliases and extendedglob (with a comment in the default alias).
+# nounset is left out: upstream's `nvm version` without arguments trips over it in zsh (`1: parameter not set`).
+zsh_opts='alias -g R="| less -S" G="| grep" C="| wc -l" H="| head" L="| less" N="| /dev/null" S="| sort"
+setopt extendedglob pipefail nonomatch; echo "22.12.0 # comment" > /tmp/sh/alias/default;'
+for variant in bash zsh zsh-opts; do
+  sh=${variant%-opts}; pre=; [ "$variant" = zsh-opts ] && pre=$zsh_opts
   for who in up nat; do
     mkfake
     if [ $who = up ]; then init=". /opt/nvm-upstream/nvm.sh"; else init="NVM_CORE=/src/target/release/nvm-core; . /src/nvm.sh"; fi
     recipe=$bash_recipe; [ $sh = zsh ] && recipe=$zsh_recipe
-    env -i HOME=/root TERM=dumb PATH=/usr/local/bin:/usr/bin:/bin NVM_DIR=/tmp/sh $sh -c "$init; $body_common $recipe $tail_common" > /tmp/sh-$sh-$who.txt 2>&1
+    env -i HOME=/root TERM=dumb PATH=/usr/local/bin:/usr/bin:/bin NVM_DIR=/tmp/sh $sh -c "$pre $init; $body_common $recipe $tail_common" > /tmp/sh-$variant-$who.txt 2>&1
   done
-  echo "##### $sh"; diff /tmp/sh-$sh-up.txt /tmp/sh-$sh-nat.txt && echo "IDENTICAL ($sh)"; cat /tmp/sh-$sh-nat.txt | head -${SHOW:-0}
+  echo "##### $variant"; diff /tmp/sh-$variant-up.txt /tmp/sh-$variant-nat.txt && echo "IDENTICAL ($variant)"; head -"${SHOW:-0}" /tmp/sh-$variant-nat.txt
 done

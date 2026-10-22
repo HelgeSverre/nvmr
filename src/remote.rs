@@ -54,7 +54,8 @@ pub fn http_get(url: &str) -> Result<String, i32> {
     Ok(String::from_utf8_lossy(&out.stdout).into_owned())
 }
 
-fn key(v: &str) -> Ver {
+/// Sort key across flavours (`iojs-vX.Y.Z` sorts by its number).
+pub fn key(v: &str) -> Ver {
     parse_ver(v.strip_prefix("iojs-").unwrap_or(v)).unwrap_or((0, 0, 0))
 }
 
@@ -140,10 +141,6 @@ pub fn lts_name(st: &Store, arg: &str) -> Result<String, (String, i32)> {
     Ok(arg.to_string())
 }
 
-pub fn sort_rows(rows: &mut [Row]) {
-    rows.sort_by_key(|r| key(&r.ver));
-}
-
 pub fn filter<'a>(rows: &'a [Row], lts: Option<&str>, pattern: Option<&str>) -> Vec<&'a Row> {
     rows.iter()
         .filter(|r| match lts {
@@ -159,7 +156,7 @@ pub fn filter<'a>(rows: &'a [Row], lts: Option<&str>, pattern: Option<&str>) -> 
             Some(p) => {
                 let p = p.trim_end_matches('.');
                 let p = p.strip_prefix('v').unwrap_or(p);
-                let v = &r.ver[1..];
+                let v = &crate::store::bare(&r.ver)[1..];
                 v == p || (v.starts_with(p) && v[p.len()..].starts_with('.'))
             }
         })

@@ -208,27 +208,13 @@ impl Store {
             return Ok(self.ls_current(&std::env::var("PATH").unwrap_or_default()));
         }
         let pattern = match pattern {
-            "node" | "node-" | "stable" => {
-                return self
-                    .installed_flavour(true, false)
-                    .pop()
-                    .map(|x| x.1)
-                    .ok_or("N/A")
-            }
+            // upstream's `nvm_version` maps `node` to `stable` before any alias lookup
+            "node" | "node-" | "stable" => return self.stable_or_unstable(true),
+            "unstable" => return self.stable_or_unstable(false),
             "iojs" | "iojs-" => {
                 return self
                     .installed_flavour(false, true)
                     .pop()
-                    .map(|x| x.1)
-                    .ok_or("N/A")
-            }
-            // implicit alias: the newest odd `0.x` minor
-            "unstable" => {
-                return self
-                    .installed_flavour(true, false)
-                    .into_iter()
-                    .rev()
-                    .find(|((maj, min, _), _)| *maj == 0 && min % 2 == 1)
                     .map(|x| x.1)
                     .ok_or("N/A")
             }
@@ -252,18 +238,7 @@ impl Store {
             };
         }
         if self.alias_path(pattern).is_file() {
-            return match self.resolve_alias(pattern) {
-                Some(t) if t == "∞" => Err("∞"),
-                Some(t) if t == "system" => {
-                    if self.system_node().is_some() {
-                        Ok(t)
-                    } else {
-                        Err("N/A")
-                    }
-                }
-                Some(t) => self.version(&t),
-                None => Err("N/A"),
-            };
+            return self.version_via_alias(pattern);
         }
         if parse_ver(&p).is_some() {
             // an exact `vX.Y.Z` is node first, else the io.js build of that number
@@ -276,6 +251,41 @@ impl Store {
             }
         }
         self.match_partial(&p).ok_or("N/A")
+    }
+
+    fn version_via_alias(&self, name: &str) -> Result<String, &'static str> {
+        match self.resolve_alias(name) {
+            Some(t) if t == "∞" => Err("∞"),
+            Some(t) if t == "system" => {
+                if self.system_node().is_some() {
+                    Ok(t)
+                } else {
+                    Err("N/A")
+                }
+            }
+            Some(t) => self.version(&t),
+            None => Err("N/A"),
+        }
+    }
+
+    /// `major.minor` of the implicit `stable` (newest line with an even 0.x minor or major >= 1) or
+    /// `unstable` (newest odd 0.x minor) alias, over installed node versions.
+    pub fn implicit_minor(&self, stable: bool) -> Option<(u64, u64)> {
+        self.installed_flavour(true, false)
+            .into_iter()
+            .rev()
+            .map(|((maj, min, _), _)| (maj, min))
+            .find(|&(maj, min)| (maj >= 1 || min % 2 == 0) == stable)
+    }
+
+    /// `stable` / `unstable`: a user alias file of that name wins, else the implicit alias.
+    fn stable_or_unstable(&self, stable: bool) -> Result<String, &'static str> {
+        let name = if stable { "stable" } else { "unstable" };
+        if self.alias_path(name).is_file() {
+            return self.version_via_alias(name);
+        }
+        let (maj, min) = self.implicit_minor(stable).ok_or("N/A")?;
+        self.match_partial(&format!("{maj}.{min}")).ok_or("N/A")
     }
 
     pub fn ls_current(&self, path_env: &str) -> String {
