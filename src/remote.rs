@@ -14,6 +14,12 @@ pub fn mirror() -> String {
     env::var("NVM_NODEJS_ORG_MIRROR").unwrap_or_else(|_| "https://nodejs.org/dist".into()).trim_end_matches('/').to_string()
 }
 
+/// `^https?://[]a-zA-Z0-9._~:/@%[-]+$`
+pub fn mirror_ok(m: &str) -> bool {
+    let rest = m.strip_prefix("https://").or_else(|| m.strip_prefix("http://"));
+    rest.map_or(false, |r| !r.is_empty() && r.chars().all(|c| c.is_ascii_alphanumeric() || "]._~:/@%[-".contains(c)))
+}
+
 pub fn fetch_bin() -> PathBuf {
     if let Ok(p) = env::var("NVM_FETCH") {
         return p.into();
@@ -22,7 +28,7 @@ pub fn fetch_bin() -> PathBuf {
 }
 
 pub fn http_get(url: &str) -> Result<String, i32> {
-    let out = Command::new(fetch_bin()).args(["get", url]).stderr(std::process::Stdio::inherit()).output().map_err(|_| {
+    let out = Command::new(fetch_bin()).args(["get", url]).stderr(std::process::Stdio::null()).output().map_err(|_| {
         eprintln!("nvm-fetch not found");
         1
     })?;
@@ -45,7 +51,12 @@ pub fn iojs_rows() -> Result<Vec<Row>, i32> {
 
 /// Fetch index.tab, rewrite alias/lts/*, return rows ascending by version.
 pub fn index(st: &Store) -> Result<Vec<Row>, i32> {
-    let body = http_get(&format!("{}/index.tab", mirror()))?;
+    if !mirror_ok(&mirror()) {
+        eprintln!("$NVM_NODEJS_ORG_MIRROR and $NVM_IOJS_ORG_MIRROR may only contain a URL");
+        return Ok(vec![]);
+    }
+    // Upstream treats any fetch failure as "no versions".
+    let Ok(body) = http_get(&format!("{}/index.tab", mirror())) else { return Ok(vec![]) };
     let mut rows = vec![];
     let mut seen: Vec<String> = vec![];
     for l in body.lines().skip(1) {

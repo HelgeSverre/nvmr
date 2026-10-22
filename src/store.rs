@@ -45,7 +45,38 @@ impl Store {
         out
     }
 
+    /// Path of the first `node` on PATH that is not managed by nvm.
+    pub fn system_node(&self) -> Option<PathBuf> {
+        let root = self.dir.clone();
+        let path = std::env::var("PATH").unwrap_or_default();
+        path.split(':')
+            .filter(|d| !Path::new(d).starts_with(&root))
+            .map(|d| Path::new(d).join("node"))
+            .find(|n| n.is_file())
+    }
+
+    pub fn system_version(&self) -> Option<String> {
+        let n = self.system_node()?;
+        let o = std::process::Command::new(n).arg("--version").output().ok()?;
+        Some(String::from_utf8_lossy(&o.stdout).trim().to_string())
+    }
+
+    /// Versions with a cached tarball (`.cache/bin/node-vX-<os>-<arch>`), ascending.
+    pub fn cached(&self) -> Vec<(Ver, String)> {
+        let mut out: Vec<(Ver, String)> = fs::read_dir(self.dir.join(".cache/bin")).into_iter().flatten().flatten().filter_map(|e| {
+            let n = e.file_name().into_string().ok()?;
+            let v = n.strip_prefix("node-")?.split('-').next()?.to_string();
+            Some((parse_ver(&v)?, v))
+        }).collect();
+        out.sort();
+        out.dedup();
+        out
+    }
+
     pub fn is_installed(&self, v: &str) -> bool {
+        if v == "system" {
+            return self.system_node().is_some();
+        }
         let p = self.version_dir(v).join("bin/node");
         fs::metadata(p).map(|m| m.is_file()).unwrap_or(false)
     }
@@ -112,6 +143,9 @@ impl Store {
         };
         if pattern.contains("..") {
             return Err("N/A");
+        }
+        if pattern == "system" {
+            return if self.system_node().is_some() { Ok("system".into()) } else { Err("N/A") };
         }
         let p = ensure_v(pattern);
         if pattern.starts_with("lts/-") {

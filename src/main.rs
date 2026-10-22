@@ -11,6 +11,8 @@ use store::{ensure_v, find_nvmrc, parse_nvmrc, Store};
 struct Eval {
     shell: String,
     buf: String,
+    /// Values queued for export, so later steps in the same invocation see them (None = queued unset).
+    vars: std::collections::HashMap<String, Option<String>>,
 }
 
 fn q(v: &str) -> String {
@@ -18,7 +20,15 @@ fn q(v: &str) -> String {
 }
 
 impl Eval {
+    /// Current value as the shell will see it after the queued statements run.
+    fn get(&self, k: &str) -> Option<String> {
+        match self.vars.get(k) {
+            Some(v) => v.clone(),
+            None => env::var(k).ok(),
+        }
+    }
     fn export(&mut self, k: &str, v: &str) {
+        self.vars.insert(k.to_string(), Some(v.to_string()));
         if self.shell == "fish" {
             let val = if k.ends_with("PATH") {
                 v.split(':').map(|p| format!("'{}'", p.replace('\\', "\\\\").replace('\'', "\\'"))).collect::<Vec<_>>().join(" ")
@@ -31,6 +41,7 @@ impl Eval {
         }
     }
     fn unset(&mut self, k: &str) {
+        self.vars.insert(k.to_string(), None);
         self.buf += &if self.shell == "fish" { format!("set -e {k}\n") } else { format!("unset {k}\n") };
     }
     fn rehash(&mut self) {
@@ -57,7 +68,7 @@ fn main() {
     let mut cx = Ctx {
         pal: colors::detect(&args),
         st: Store { dir: PathBuf::from(&nvm_dir) },
-        ev: Eval { shell: env::var("NVM_SHELL").unwrap_or_else(|_| "bash".into()), buf: String::new() },
+        ev: Eval { shell: env::var("NVM_SHELL").unwrap_or_else(|_| "bash".into()), buf: String::new(), vars: Default::default() },
         nvm_dir,
     };
     let rc = run(&mut cx, &args);
@@ -452,6 +463,17 @@ fn cmd_use(cx: &mut Ctx, rest: &[String]) -> i32 {
                 let _ = std::os::unix::fs::symlink(&vd, &cur);
             }
             cx.ev.rehash();
+            let delete = rest.iter().any(|a| a == "--delete-prefix");
+            let mut ucmd = String::from("nvm use --delete-prefix");
+            if positional {
+                ucmd += &format!(" {v}");
+            }
+            if silent {
+                ucmd += " --silent";
+            }
+            if die_on_prefix(cx, delete, &ucmd, &vd, silent).is_err() {
+                return 11;
+            }
             if !silent {
                 match cx.st.npm_version(&v) {
                     Some(n) => println!("Now using node {v} (npm v{n})"),
@@ -471,7 +493,7 @@ fn cmd_use(cx: &mut Ctx, rest: &[String]) -> i32 {
 }
 fn cmd_deactivate(cx: &mut Ctx, rest: &[String]) -> i32 {
     let silent = rest.iter().any(|a| a == "--silent");
-    let path = env::var("PATH").unwrap_or_default();
+    let path = cx.ev.get("PATH").unwrap_or_default();
     let np = pathedit::strip_path(&path, "/bin", &cx.nvm_dir);
     if np == path {
         if !silent {
@@ -484,7 +506,7 @@ fn cmd_deactivate(cx: &mut Ctx, rest: &[String]) -> i32 {
             println!("{}/*/bin removed from ${{PATH}}", cx.nvm_dir);
         }
     }
-    if let Some(m) = env::var("MANPATH").ok().filter(|m| !m.is_empty()) {
+    if let Some(m) = cx.ev.get("MANPATH").filter(|m| !m.is_empty()) {
         let nm = pathedit::strip_path(&m, "/share/man", &cx.nvm_dir);
         if nm == m {
             if !silent {
@@ -501,7 +523,7 @@ fn cmd_deactivate(cx: &mut Ctx, rest: &[String]) -> i32 {
             }
         }
     }
-    if let Some(n) = env::var("NODE_PATH").ok().filter(|m| !m.is_empty()) {
+    if let Some(n) = cx.ev.get("NODE_PATH").filter(|m| !m.is_empty()) {
         let nn = pathedit::strip_path(&n, "/lib/node_modules", &cx.nvm_dir);
         if nn != n {
             cx.ev.export("NODE_PATH", &nn);
@@ -513,6 +535,94 @@ fn cmd_deactivate(cx: &mut Ctx, rest: &[String]) -> i32 {
     cx.ev.unset("NVM_BIN");
     cx.ev.unset("NVM_INC");
     0
+}
+
+fn sanitize(cx: &Ctx, p: &str) -> String {
+    let mut o = p.to_string();
+    if o != cx.nvm_dir {
+        o = o.replace(&cx.nvm_dir, "${NVM_DIR}");
+    }
+    let home = env::var("HOME").unwrap_or_default();
+    if !home.is_empty() && o != home {
+        o = o.replace(&home, "${HOME}");
+    }
+    o
+}
+
+fn npmrc_bad(p: &std::path::Path) -> bool {
+    fs::read_to_string(p).map(|t| t.lines().any(|l| {
+        let k = l.split('=').next().unwrap_or("");
+        (l.contains('=')) && matches!(k.trim_end_matches(' '), "prefix" | "globalconfig") && l.starts_with(k)
+    })).unwrap_or(false)
+}
+
+/// §5.4. Err(rc) is the helper's code (3, 4, 10); `use` turns any failure into 11.
+fn die_on_prefix(cx: &mut Ctx, delete: bool, cmd: &str, vd: &str, silent_use: bool) -> Result<(), i32> {
+    let _ = silent_use;
+    if let Ok(pre) = env::var("PREFIX") {
+        if !pre.is_empty() && pre != vd {
+            let _ = cmd_deactivate(cx, &["--silent".to_string()]);
+            eprintln!("nvm is not compatible with the \"PREFIX\" environment variable: currently set to \"{pre}\"\nRun `unset PREFIX` to unset it.");
+            return Err(3);
+        }
+    }
+    if let Some((name, val)) = env::vars().find(|(k, _)| k.to_uppercase() == "NPM_CONFIG_PREFIX") {
+        let under = val == cx.nvm_dir || val.starts_with(&format!("{}/", cx.nvm_dir));
+        if !val.is_empty() && !under {
+            let _ = cmd_deactivate(cx, &["--silent".to_string()]);
+            eprintln!("nvm is not compatible with the \"{name}\" environment variable: currently set to \"{val}\"\nRun `unset {name}` to unset it.");
+            return Err(4);
+        }
+    }
+    let npm = format!("{vd}/bin/npm");
+    let path = format!("{vd}/bin:{}", env::var("PATH").unwrap_or_default());
+    let run_npm = |args: &[&str]| {
+        let _ = Command::new(&npm).args(args).env("PATH", &path).status();
+    };
+    let home_rc = format!("{}/.npmrc", env::var("HOME").unwrap_or_default());
+    let mut project = env::current_dir().unwrap_or_default();
+    while project.as_os_str() != "" && project.to_string_lossy() != "." && !project.join("package.json").is_file() && !project.join("node_modules").is_dir() {
+        match project.parent() {
+            Some(p) if p != project => project = p.to_path_buf(),
+            _ => {
+                project = std::path::PathBuf::new();
+                break;
+            }
+        }
+    }
+    let project_rc = format!("{}/.npmrc", project.display());
+    let checks: [(&str, String, Vec<Vec<String>>); 4] = [
+        ("builtin npmrc", format!("{vd}/lib/node_modules/npm/npmrc"), vec![]),
+        ("global npmrc", format!("{vd}/etc/npmrc"), vec![]),
+        ("user’s .npmrc", home_rc, vec![]),
+        ("project npmrc", project_rc, vec![]),
+    ];
+    for (i, (label, file, _)) in checks.iter().enumerate() {
+        if !npmrc_bad(std::path::Path::new(file)) {
+            continue;
+        }
+        if delete {
+            match i {
+                0 | 2 => {
+                    let uc = format!("--userconfig={file}");
+                    run_npm(&["config", "--loglevel=warn", "delete", "prefix", &uc]);
+                    run_npm(&["config", "--loglevel=warn", "delete", "globalconfig", &uc]);
+                }
+                1 => {
+                    run_npm(&["config", "--global", "--loglevel=warn", "delete", "prefix"]);
+                    run_npm(&["config", "--global", "--loglevel=warn", "delete", "globalconfig"]);
+                }
+                _ => {
+                    run_npm(&["config", "--loglevel=warn", "delete", "prefix"]);
+                    run_npm(&["config", "--loglevel=warn", "delete", "globalconfig"]);
+                }
+            }
+        } else {
+            eprintln!("Your {label} file ({})\nhas a `globalconfig` and/or a `prefix` setting, which are incompatible with nvm.\nRun `{cmd}` to unset it.", sanitize(cx, file));
+            return Err(10);
+        }
+    }
+    Ok(())
 }
 
 fn has_manpath() -> bool {
@@ -726,6 +836,27 @@ fn cmd_ls(cx: &mut Ctx, rest: &[String]) -> i32 {
         }
         None => cx.st.installed().into_iter().map(|x| x.1).collect(),
     };
+    let want_system = pat.map_or(true, |p| p == "system") && cx.st.system_node().is_some();
+    let list: Vec<String> = if pat.map_or(false, |p| p == "system") { vec![] } else { list };
+    let sys_row = |cx: &Ctx| {
+        let sv = cx.st.system_version().unwrap_or_default();
+        let txt = if cur == "system" { format!("->{:>13}", "system") } else { format!("{:>15}", "system") };
+        if cx.pal.is_some() {
+            format!("{} ({} {})", colors::paint(&cx.pal, if cur == "system" { 3 } else { 2 }, &txt), colors::paint(&Some(colors::Pal(["0;90".into(), String::new(), String::new(), String::new(), String::new(), String::new()])), 1, "->"), colors::paint(&cx.pal, 2, &sv))
+        } else {
+            format!("{txt} * (-> {sv})")
+        }
+    };
+    if list.is_empty() && want_system {
+        if pat.is_none() {
+            println!();
+        }
+        println!("{}", sys_row(cx));
+        if pat.is_none() && !no_alias {
+            list_aliases(cx, None);
+        }
+        return 0;
+    }
     if list.is_empty() {
         let na = format!("{:>15}", "N/A");
         println!("{na}{}", if pat.is_none() { " *" } else { "" });
@@ -741,6 +872,9 @@ fn cmd_ls(cx: &mut Ctx, rest: &[String]) -> i32 {
         } else {
             println!("{txt} *");
         }
+    }
+    if want_system {
+        println!("{}", sys_row(cx));
     }
     if pat.is_none() && !no_alias {
         list_aliases(cx, None);
@@ -890,6 +1024,7 @@ fn cmd_ls_remote(cx: &mut Ctx, rest: &[String]) -> i32 {
         Ok(r) => r,
         Err(c) => return c,
     };
+    let node_empty = rows.is_empty();
     if pat.is_none() && lts.is_none() {
         if let Ok(mut io) = remote::iojs_rows() {
             rows.append(&mut io);
@@ -901,7 +1036,8 @@ fn cmd_ls_remote(cx: &mut Ctx, rest: &[String]) -> i32 {
     let sel = remote::filter(&rows, lts.as_deref(), if node_alias { None } else { pat.as_deref() });
 
     if sel.is_empty() {
-        println!("{:>15} *", "N/A");
+        let star = lts.is_none() && pat.as_deref().map_or(false, valid_versionish);
+        println!("{:>15}{}", "N/A", if star { " *" } else { "" });
         return 3;
     }
     let mut out = String::new();
@@ -911,7 +1047,9 @@ fn cmd_ls_remote(cx: &mut Ctx, rest: &[String]) -> i32 {
     }
     print!("{out}");
     // Upstream quirk (v0.40.8): a positional pattern without --lts exits 3 even on success.
-    if pat.is_some() && lts.is_none() && !node_alias {
+    if node_empty {
+        3
+    } else if pat.is_some() && lts.is_none() && !node_alias {
         3
     } else {
         0
@@ -1043,6 +1181,10 @@ fn cmd_install(cx: &mut Ctx, rest: &[String]) -> i32 {
             Ok(x) => Some(x),
             Err((m, rc)) => {
                 eprintln!("{m}");
+                if rc == 3 {
+                    let n = flags_lts.clone().unwrap_or_default();
+                    eprintln!("Version with LTS filter '{n}' not found - try `nvm ls-remote --lts={n}` to browse available versions.");
+                }
                 return rc;
             }
         },
@@ -1053,7 +1195,11 @@ fn cmd_install(cx: &mut Ctx, rest: &[String]) -> i32 {
         let pat = version.clone().unwrap_or_else(|| "lts/*".into());
         match cx.st.version(&pat) {
             Ok(v) => Some(v),
-            Err(_) => None,
+            Err(_) => {
+                let p = ensure_v(&pat);
+                let pfx = format!("{}.", p.trim_end_matches('.'));
+                cx.st.cached().into_iter().rev().map(|x| x.1).find(|n| format!("{n}.").starts_with(&pfx))
+            }
         }
     } else {
         let rows = match remote::index(&cx.st) {
@@ -1069,6 +1215,7 @@ fn cmd_install(cx: &mut Ctx, rest: &[String]) -> i32 {
             Some(n) => (format!(" (with LTS filter '{n}') "), format!(" --lts={n}")),
         };
         match &version {
+            Some(v) if offline => eprintln!("Version '{v}' {}not found locally or in cache - try `nvm ls{f2}` to browse available versions.", f1.trim_start()),
             Some(v) => eprintln!("Version '{v}' {}not found - try `nvm ls-remote{f2}` to browse available versions.", f1.trim_start()),
             None => eprintln!("Version with LTS filter '{}' not found - try `nvm ls-remote{f2}` to browse available versions.", flags_lts.clone().unwrap_or_default()),
         }
