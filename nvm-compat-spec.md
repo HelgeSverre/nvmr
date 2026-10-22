@@ -750,7 +750,7 @@ Interrupts: Ctrl-C during a download keeps the partial tarball (the next install
 
 Measured (Linux arm64 VM, medians): `nvm-core` hot commands 0.2–0.4 ms (budget 2–3 ms); `source nvm.sh` with auto-use 2.9 ms bash / 4.7 ms zsh versus 138 / 240 ms upstream; `nvm use` in a fresh shell 1.0 ms versus 67 ms; `nvm ls` with 122 versions 1.2 ms versus 670–2,063 ms. Static musl binaries: `nvm-core` 0.66 MB, `nvm-fetch` 1.97 MB. The glibc-dynamic `nvm-core` makes 93 syscalls on the `__auto use` path (budget 80); the static build was not re-measured.
 
-Not done: macOS build and measurements (the Security.framework startup budget in §13.2 is unverified); io.js installation (non-goal); `NVM_AUTH_HEADER` is untested against a real authenticated mirror; upstream's urchin test suite (its tests call internal shell functions that the native build intentionally does not define).
+Not done: macOS build and measurements (the Security.framework startup budget in §13.2 is unverified); io.js installation (non-goal); `NVM_AUTH_HEADER` is checked against a header-logging local mirror (sent, sanitized, on every index, checksum and tarball request, like upstream) but not against a real authenticated mirror; upstream's urchin test suite (its tests call internal shell functions that the native build intentionally does not define).
 
 Known remaining differences from upstream, deliberately not fixed (rare in practice; each is a small, local change if needed):
 - Junk entries in `versions/node` (non-version directory names) are skipped, upstream lists them; a directory named like a version but without `bin/node` is listed in both, symlinked and plain-file entries are skipped in both.

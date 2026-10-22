@@ -52,8 +52,24 @@ fn major(v: &str) -> u64 {
         .unwrap_or(0)
 }
 
+/// A GET request carrying `$NVM_AUTH_HEADER` (sanitized like upstream's `nvm_sanitize_auth_header`),
+/// which upstream sends with every download: indexes, checksums and tarballs.
+fn request(url: &str) -> ureq::RequestBuilder<ureq::typestate::WithoutBody> {
+    let req = agent().get(url);
+    match std::env::var("NVM_AUTH_HEADER") {
+        Ok(h) if !h.is_empty() => {
+            let clean: String = h
+                .chars()
+                .filter(|c| c.is_ascii_alphanumeric() || " :_.+/=~-".contains(*c))
+                .collect();
+            req.header("Authorization", clean)
+        }
+        _ => req,
+    }
+}
+
 fn http_get(url: &str) -> Result<Vec<u8>, i32> {
-    let mut r = agent().get(url).call().map_err(|_| 4)?;
+    let mut r = request(url).call().map_err(|_| 4)?;
     let st = r.status().as_u16();
     if st == 404 {
         eprintln!("HTTP 404 at URL {url}");
@@ -74,16 +90,9 @@ fn http_get(url: &str) -> Result<Vec<u8>, i32> {
 fn download(url: &str, dest: &Path, progress: bool) -> Result<String, i32> {
     let _ = ctrlc::set_handler(|| exit(130)); // partial tarball stays on disk for `Range:` resume
     let mut have = fs::metadata(dest).map_or(0, |m| m.len());
-    let mut req = agent().get(url);
+    let mut req = request(url);
     if have > 0 {
         req = req.header("Range", format!("bytes={have}-"));
-    }
-    if let Ok(h) = std::env::var("NVM_AUTH_HEADER") {
-        let clean: String = h
-            .chars()
-            .filter(|c| c.is_ascii_alphanumeric() || " :_.+/=~-".contains(*c))
-            .collect();
-        req = req.header("Authorization", clean);
     }
     let mut resp = req.call().map_err(|_| {
         eprintln!("download from {url} failed");

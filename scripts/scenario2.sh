@@ -106,3 +106,4 @@ t alias
 t uninstall --lts=iron
 t alias lts/iron
 t alias
+t uninstall --

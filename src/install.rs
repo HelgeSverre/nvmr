@@ -392,6 +392,11 @@ pub fn cmd_uninstall(cx: &mut Ctx, rest: &[String]) -> i32 {
         eprintln!("Usage: nvm uninstall <version>\n       nvm uninstall --lts\n       nvm uninstall --lts=<LTS name>\n  {HELP_HINT}");
         return 127;
     }
+    if rest[0] == "--" {
+        // upstream resolves `--` like any other pattern and gets an empty version back
+        eprintln!("Version '' (inferred from --) is not installed.");
+        return 0;
+    }
     let (lts, pat) = match lts_filter(cx, rest) {
         Ok(x) => x,
         Err(c) => return c,
