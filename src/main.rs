@@ -524,7 +524,8 @@ fn cmd_use(cx: &mut Ctx, rest: &[String]) -> i32 {
             8
         }
         Err(_) => {
-            if !silent {
+            // Upstream quirk: `use --lts` (no positional) passes an empty PROVIDED_VERSION to the check, so it stays silent.
+            if !silent && !(lts.is_some() && !positional) {
                 ensure_installed(cx, &pat, from_rc);
             }
             3
