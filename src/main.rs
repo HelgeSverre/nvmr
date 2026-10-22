@@ -1037,7 +1037,7 @@ fn cmd_ls_remote(cx: &mut Ctx, rest: &[String]) -> i32 {
     let sel = remote::filter(&rows, lts.as_deref(), if node_alias { None } else { pat.as_deref() });
 
     if sel.is_empty() {
-        let star = lts.is_none() && pat.as_deref().map_or(false, valid_versionish);
+        let star = cx.pal.is_none() && lts.is_none() && pat.as_deref().map_or(false, valid_versionish);
         println!("{:>15}{}", "N/A", if star { " *" } else { "" });
         return 3;
     }
