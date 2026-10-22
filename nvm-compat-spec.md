@@ -743,9 +743,20 @@ Revisit trigger for this decision: a MUST in §13.2 that cannot be met in Rust a
 
 ## 15. Implementation status (2026-10-22)
 
-Implemented in Rust (`src/`), verified on Linux (arm64) inside Docker against upstream nvm v0.40.8 with `scripts/verify.sh` (clean build, 8 unit tests, ~220 compared commands, colour, bash, zsh, fish, portability):
+Implemented in Rust (`src/`), verified on Linux (arm64) inside Docker against upstream nvm v0.40.8 with `scripts/verify.sh` (clean build, 8 unit tests, 277 compared commands (7 scenarios), colour, bash, zsh, fish, portability):
 resolution (§3–4), PATH/MANPATH/NODE_PATH editing and the prefix guard (§5), every command in §6 except source builds (`install -s` and the source fallback print an explanatory message), `.nvmrc`, aliases, LTS maintenance, offline installs, install locks, third-party hook, `default-packages`, `--latest-npm`, `reinstall-packages`, colours and `set-colors`, `debug`, `unload`, system node, lazy mode, `nvm-exec`, installer, fish integration, static musl bundle.
 
 Measured (Linux arm64 VM, medians): `nvm-core` hot commands 0.2–0.4 ms (budget 2–3 ms); `source nvm.sh` with auto-use 2.9 ms bash / 4.7 ms zsh versus 138 / 240 ms upstream; `nvm use` in a fresh shell 1.0 ms versus 67 ms; `nvm ls` with 122 versions 1.2 ms versus 670–2,063 ms. Static musl binaries: `nvm-core` 0.66 MB, `nvm-fetch` 1.97 MB. The glibc-dynamic `nvm-core` makes 93 syscalls on the `__auto use` path (budget 80); the static build was not re-measured.
 
 Not done: macOS build and measurements (the Security.framework startup budget in §13.2 is unverified); source builds; io.js installation; `NVM_AUTH_HEADER` is wired but untested; signal handling during downloads (partial tarballs are kept for resume, but Ctrl-C does not clean `files/`); upstream's urchin test suite (its tests call internal shell functions that the native build intentionally does not define).
+
+Known remaining differences from upstream, found by an independent adversarial pass and deliberately not fixed (rare in practice; each is a small, local change if needed):
+- Locally installed io.js versions (`versions/io.js/*`) are ignored by `ls`, `version`, `use`.
+- Junk entries in `versions/node` (non-version directory names) are skipped, upstream lists them; a directory named like a version but without `bin/node` is listed in both, symlinked and plain-file entries are skipped in both.
+- Alias-file parsing: leading whitespace is trimmed (upstream yields `N/A`), a two-line alias file uses the first line only, a self-referencing alias shows `∞` at creation (upstream `N/A`), and over-long alias names fail silently instead of printing `tee`'s error.
+- Odd version-ish strings that upstream's regexes accept or reject: `.20`, `20*`, `lts/-0`, `nvm version -- 20`, `which 0` on fake 0.x layouts.
+- `NVM_COLORS` with invalid codes: upstream prints `Invalid color code: z` per bad code, native falls back silently to the default palette.
+- `ls current` prints `N/A` in native where upstream prints the current row; `ls unstable` prints one `N/A` line fewer; `ls-remote --lts --lts` prints `N/A` without the star.
+- `install` with bare option-only invocations (`-s`, `--alias`, `--alias=`, `--offline` and no version/.nvmrc): usage in native, "No version provided..." then continuation in upstream; `install lts/*` also prints `Installing latest LTS version.`.
+- Invalid `.nvmrc` with `install --offline`; bare `nvm use --save current` edge cases.
+- Read-only `NVM_DIR`: `alias` creation failures exit 1 silently instead of printing the underlying `mkdir`/`tee` error.
