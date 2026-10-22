@@ -24,13 +24,12 @@ if [ -n "${ZSH_VERSION-}" ]; then NVM_CD_FLAGS="-q"; fi
 nvm() {
   if [ "$#" -lt 1 ]; then set -- --help; fi
   if [ -n "${__NVM_LAZY_PENDING-}" ]; then __nvm_lazy_load; fi
-  __nvm_eval="$(command mktemp "${TMPDIR:-/tmp}/nvm-eval.XXXXXX")" || return 1
-  NVM_EVAL_FILE="$__nvm_eval" NVM_SHELL="${NVM_SHELL:-$([ -n "${ZSH_VERSION-}" ] && echo zsh || echo bash)}" \
+  # One spawn per call: nvm-core queues shell statements in a per-shell file (truncated by the shell, no mktemp/rm).
+  __nvm_ef="$NVM_DIR/.cache/eval.$$"
+  NVM_EVAL_FILE="$__nvm_ef" NVM_SHELL="${NVM_SHELL:-$([ -n "${ZSH_VERSION-}" ] && echo zsh || echo bash)}" \
     command "${NVM_CORE:-$NVM_DIR/nvm-core}" "$@"
   __nvm_rc=$?
-  if [ -s "$__nvm_eval" ]; then . "$__nvm_eval"; fi
-  command rm -f "$__nvm_eval"
-  __nvm_eval=
+  if [ -s "$__nvm_ef" ]; then . "$__nvm_ef"; : >"$__nvm_ef"; fi
   return $__nvm_rc
 }
 

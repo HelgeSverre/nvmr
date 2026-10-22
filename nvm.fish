@@ -14,13 +14,14 @@ function nvm
     if test (count $argv) -lt 1
         set argv --help
     end
-    set -l f (command mktemp (test -n "$TMPDIR"; and echo $TMPDIR; or echo /tmp)/nvm-eval.XXXXXX)
-    or return 1
+    set -l f $NVM_DIR/.cache/eval.$fish_pid
     set -l core (__nvm_core)
     env NVM_EVAL_FILE=$f NVM_SHELL=fish $core $argv
     set -l rc $status
-    test -s $f; and source $f
-    command rm -f $f
+    if test -s $f
+        source $f
+        : >$f
+    end
     return $rc
 end
 

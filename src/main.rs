@@ -61,13 +61,36 @@ fn main() {
         nvm_dir,
     };
     let rc = run(&mut cx, &args);
-    if !cx.ev.buf.is_empty() {
-        if let Ok(f) = env::var("NVM_EVAL_FILE") {
-            let _ = fs::write(f, &cx.ev.buf);
-        }
-    }
+    flush_eval(&cx.ev.buf);
     let _ = std::io::stdout().flush();
     exit(rc);
+}
+
+/// Writes queued shell statements to `$NVM_EVAL_FILE` (creating its directory), clears stale content when
+/// there is nothing to write, and prunes eval files of long-dead shells from `$NVM_DIR/.cache`.
+fn flush_eval(buf: &str) {
+    let Ok(f) = env::var("NVM_EVAL_FILE") else { return };
+    let path = std::path::Path::new(&f);
+    if buf.is_empty() {
+        if fs::metadata(path).map(|m| m.len() > 0).unwrap_or(false) {
+            let _ = fs::write(path, "");
+        }
+        return;
+    }
+    if let Some(d) = path.parent() {
+        let _ = fs::create_dir_all(d);
+        if d.file_name().map_or(false, |n| n == ".cache") {
+            let day = std::time::Duration::from_secs(86_400);
+            for e in fs::read_dir(d).into_iter().flatten().flatten() {
+                let stale = e.file_name().to_string_lossy().starts_with("eval.")
+                    && e.metadata().and_then(|m| m.modified()).ok().and_then(|t| t.elapsed().ok()).map_or(false, |a| a > day);
+                if stale {
+                    let _ = fs::remove_file(e.path());
+                }
+            }
+        }
+    }
+    let _ = fs::write(path, buf);
 }
 
 const HELP: &str = include_str!("help.txt");
@@ -403,10 +426,7 @@ fn cmd_use(cx: &mut Ctx, rest: &[String]) -> i32 {
             };
             let path = env::var("PATH").unwrap_or_default();
             let np = pathedit::strip_path(&path, "/bin", &cx.nvm_dir);
-            cx.ev.export("PATH", &np);
-            cx.ev.unset("NVM_BIN");
-            cx.ev.unset("NVM_INC");
-            cx.ev.rehash();
+            let _ = cmd_deactivate(cx, &["--silent".to_string()]);
             if !silent {
                 let npm = Command::new("npm").arg("--version").env("PATH", &np).output().ok().filter(|o| o.status.success()).map(|o| format!(" (npm v{})", String::from_utf8_lossy(&o.stdout).trim())).unwrap_or_default();
                 println!("Now using system version of node: {sv}{npm}");
@@ -417,8 +437,12 @@ fn cmd_use(cx: &mut Ctx, rest: &[String]) -> i32 {
             let vd = cx.st.version_dir(&v).to_string_lossy().into_owned();
             let path = env::var("PATH").unwrap_or_default();
             cx.ev.export("PATH", &pathedit::change_path(&path, "/bin", &vd, &cx.nvm_dir));
-            if let Ok(m) = env::var("MANPATH") {
-                cx.ev.export("MANPATH", &pathedit::change_path(&m, "/share/man", &vd, &cx.nvm_dir));
+            if has_manpath() {
+                let mut m = pathedit::change_path(&env::var("MANPATH").unwrap_or_default(), "/share/man", &vd, &cx.nvm_dir);
+                if !(m.starts_with(':') || m.contains("::") || m.ends_with(':')) {
+                    m.push(':');
+                }
+                cx.ev.export("MANPATH", &m);
             }
             cx.ev.export("NVM_BIN", &format!("{vd}/bin"));
             cx.ev.export("NVM_INC", &format!("{vd}/include/node"));
@@ -455,26 +479,45 @@ fn cmd_deactivate(cx: &mut Ctx, rest: &[String]) -> i32 {
         }
     } else {
         cx.ev.export("PATH", &np);
+        cx.ev.rehash();
         if !silent {
             println!("{}/*/bin removed from ${{PATH}}", cx.nvm_dir);
         }
     }
-    if let Ok(m) = env::var("MANPATH") {
+    if let Some(m) = env::var("MANPATH").ok().filter(|m| !m.is_empty()) {
         let nm = pathedit::strip_path(&m, "/share/man", &cx.nvm_dir);
-        if nm != m {
+        if nm == m {
+            if !silent {
+                eprintln!("Could not find {}/*/share/man in ${{MANPATH}}", cx.nvm_dir);
+            }
+        } else {
             if nm.is_empty() || nm == ":" {
                 cx.ev.unset("MANPATH");
             } else {
                 cx.ev.export("MANPATH", &nm);
             }
+            if !silent {
+                println!("{}/*/share/man removed from ${{MANPATH}}", cx.nvm_dir);
+            }
+        }
+    }
+    if let Some(n) = env::var("NODE_PATH").ok().filter(|m| !m.is_empty()) {
+        let nn = pathedit::strip_path(&n, "/lib/node_modules", &cx.nvm_dir);
+        if nn != n {
+            cx.ev.export("NODE_PATH", &nn);
+            if !silent {
+                println!("{}/*/lib/node_modules removed from ${{NODE_PATH}}", cx.nvm_dir);
+            }
         }
     }
     cx.ev.unset("NVM_BIN");
     cx.ev.unset("NVM_INC");
-    cx.ev.rehash();
     0
 }
 
+fn has_manpath() -> bool {
+    env::var("PATH").unwrap_or_default().split(':').any(|d| std::path::Path::new(d).join("manpath").is_file())
+}
 fn builtin(n: &str) -> bool {
     matches!(n, "stable" | "unstable" | "iojs" | "node" | "system")
 }
