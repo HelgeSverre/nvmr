@@ -21,15 +21,28 @@ if [ -z "${NVM_CD_FLAGS-}" ]; then export NVM_CD_FLAGS=''; fi
 if [ -n "${ZSH_VERSION-}" ]; then NVM_CD_FLAGS="-q"; fi
 
 # --- the nvm function: run nvm-core, then source whatever shell statements it queued (spec §1.1) ---
+# Fast path needs a writable cache dir for the per-shell eval file; read-only installs fall back to mktemp.
+__nvm_fast=
+if [ -d "$NVM_DIR/.cache" ]; then
+  [ -w "$NVM_DIR/.cache" ] && __nvm_fast=1
+elif [ -w "$NVM_DIR" ]; then
+  __nvm_fast=1
+fi
+
 nvm() {
   if [ "$#" -lt 1 ]; then set -- --help; fi
   if [ -n "${__NVM_LAZY_PENDING-}" ]; then __nvm_lazy_load; fi
-  # One spawn per call: nvm-core queues shell statements in a per-shell file (truncated by the shell, no mktemp/rm).
-  __nvm_ef="$NVM_DIR/.cache/eval.$$"
+  if [ -n "$__nvm_fast" ]; then
+    # One spawn per call: nvm-core queues shell statements in a per-shell file (truncated by the shell, no mktemp/rm).
+    __nvm_ef="$NVM_DIR/.cache/eval.$$"
+  else
+    __nvm_ef="$(command mktemp "${TMPDIR:-/tmp}/nvm-eval.XXXXXX")" || return 1
+  fi
   NVM_EVAL_FILE="$__nvm_ef" NVM_SHELL="${NVM_SHELL:-$([ -n "${ZSH_VERSION-}" ] && echo zsh || echo bash)}" \
     command "${NVM_CORE:-$NVM_DIR/nvm-core}" "$@"
   __nvm_rc=$?
   if [ -s "$__nvm_ef" ]; then . "$__nvm_ef"; : >"$__nvm_ef"; fi
+  if [ -z "$__nvm_fast" ]; then command rm -f "$__nvm_ef"; fi
   return $__nvm_rc
 }
 

@@ -38,6 +38,9 @@ impl Store {
             .flatten()
             .filter_map(|e| {
                 let n = e.file_name().into_string().ok()?;
+                if !e.file_type().map(|t| t.is_dir()).unwrap_or(false) {
+                    return None; // upstream's `find -type d` ignores files and symlinks
+                }
                 Some((parse_ver(&n).filter(|_| n.starts_with('v'))?, n))
             })
             .collect();
@@ -137,6 +140,9 @@ impl Store {
 
     /// §4.3 `nvm_version`: Ok(resolved) or Err("N/A" | "∞").
     pub fn version(&self, pattern: &str) -> Result<String, &'static str> {
+        if pattern.is_empty() || pattern == "current" {
+            return Ok(self.ls_current(&std::env::var("PATH").unwrap_or_default()));
+        }
         let pattern = match pattern {
             "node" | "node-" | "stable" => return self.match_partial("").ok_or("N/A"),
             p => p,
@@ -157,7 +163,7 @@ impl Store {
         if self.alias_path(pattern).is_file() {
             return match self.resolve_alias(pattern) {
                 Some(t) if t == "∞" => Err("∞"),
-                Some(t) if t == "system" => Ok(t),
+                Some(t) if t == "system" => if self.system_node().is_some() { Ok(t) } else { Err("N/A") },
                 Some(t) => self.version(&t),
                 None => Err("N/A"),
             };
