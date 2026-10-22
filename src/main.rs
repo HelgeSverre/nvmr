@@ -9,6 +9,7 @@ mod store;
 use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::process::{exit, Command};
+use std::time::Instant;
 use std::{env, fs};
 
 use eval::{flush_eval, Eval};
@@ -23,6 +24,7 @@ struct Ctx {
 }
 
 fn main() {
+    let start = Instant::now();
     let args: Vec<String> = env::args().skip(1).collect();
     let nvm_dir = env::var("NVM_DIR").map_or_else(
         |_| format!("{}/.nvm", env::var("HOME").unwrap_or_default()),
@@ -36,9 +38,21 @@ fn main() {
         ev: Eval::new(env::var("NVM_SHELL").unwrap_or_else(|_| "bash".into())),
         nvm_dir,
     };
+    let setup = start.elapsed();
     let rc = run(&mut cx, &args);
+    let command = start.elapsed();
     flush_eval(&cx.ev.buf);
     let _ = std::io::stdout().flush();
+    if env::var_os("NVM_TIMINGS").is_some_and(|v| v == "1") {
+        let total = start.elapsed();
+        eprintln!(
+            "nvm-core timings (µs): setup {} command {} eval-write {} total {}",
+            setup.as_micros(),
+            (command - setup).as_micros(),
+            (total - command).as_micros(),
+            total.as_micros()
+        );
+    }
     exit(rc);
 }
 
