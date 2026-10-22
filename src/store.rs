@@ -64,7 +64,17 @@ impl Store {
     }
 
     /// §4.2. Returns Some(target) after >=1 hop (`∞` on cycle), None when no alias.
+    pub fn lts_minus(&self, n: usize) -> Option<String> {
+        let mut names: Vec<String> = fs::read_dir(self.dir.join("alias/lts")).into_iter().flatten().flatten().filter_map(|e| e.file_name().into_string().ok()).filter(|n| n != "*").collect();
+        names.sort();
+        names.len().checked_sub(n + 1).and_then(|i| names.get(i).cloned())
+    }
+
     pub fn resolve_alias(&self, pattern: &str) -> Option<String> {
+        if let Some(n) = pattern.strip_prefix("lts/-").and_then(|n| n.parse::<usize>().ok()) {
+            let name = self.lts_minus(n)?;
+            return self.read_alias(&format!("lts/{name}")).map(|v| ensure_v(&v));
+        }
         let mut seen = vec![pattern.to_string()];
         let mut cur = pattern.to_string();
         while let Some(next) = self.read_alias(&cur) {
@@ -104,6 +114,12 @@ impl Store {
             return Err("N/A");
         }
         let p = ensure_v(pattern);
+        if pattern.starts_with("lts/-") {
+            return match self.resolve_alias(pattern) {
+                Some(t) => self.version(&t),
+                None => Err("N/A"),
+            };
+        }
         if self.alias_path(pattern).is_file() {
             return match self.resolve_alias(pattern) {
                 Some(t) if t == "∞" => Err("∞"),
@@ -149,7 +165,19 @@ pub fn parse_nvmrc(content: &str) -> Result<String, String> {
         .map(|l| l.split('#').next().unwrap_or("").trim())
         .filter(|l| !l.is_empty())
         .collect();
-    let bare: Vec<&&str> = lines.iter().filter(|l| l.starts_with('=') || !l.contains('=')).collect();
+    let mut bare = vec![];
+    let mut keys: Vec<&str> = vec![];
+    for l in &lines {
+        match l.split_once('=') {
+            Some((k, _)) if !k.is_empty() => {
+                if *k == *"node" || keys.contains(&k) {
+                    return Err(lines.join("\n"));
+                }
+                keys.push(k);
+            }
+            _ => bare.push(*l),
+        }
+    }
     if bare.len() == 1 {
         Ok(bare[0].to_string())
     } else {

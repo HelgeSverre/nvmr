@@ -5,7 +5,7 @@ export NVM_DIR=/tmp/nvmtest NVM_NO_COLORS=--no-colors NVM_NO_PROGRESS=1 TERM=dum
 CORE=/src/target/release/nvm-core
 run() { # $1=label ; rest = shell snippet that defines nvm
   rm -rf "$NVM_DIR"; mkdir -p "$NVM_DIR"
-  ( export PATH=/usr/local/bin:/usr/bin:/bin; eval "$2"; cd /tmp; . /src/scripts/scenario.sh ) > /tmp/out-$1.txt 2>&1
+  ( export PATH=/usr/local/bin:/usr/bin:/bin; eval "$2"; cd /tmp; . /src/scripts/${SC:-scenario.sh} ) > /tmp/out-$1.txt 2>&1
 }
 cp /opt/nvm-upstream/nvm-exec /tmp/nvm-exec.up; run up  'cp /tmp/nvm-exec.up $NVM_DIR/nvm-exec; ln -sf /opt/nvm-upstream/nvm.sh $NVM_DIR/nvm.sh; . /opt/nvm-upstream/nvm.sh --no-use'
 cp /src/nvm.sh "$NVM_DIR" 2>/dev/null
