@@ -1,6 +1,0 @@
-export NVM_DIR=/tmp/n; mkdir -p $NVM_DIR; . /opt/nvm-upstream/nvm.sh --no-use
-nvm ls-remote --no-colors > /tmp/r.txt 2>&1; echo rc=$?; wc -l /tmp/r.txt; head -4 /tmp/r.txt; echo ...
-grep -n "Latest" /tmp/r.txt | head -5; echo ...
-grep -n "v22\.\(1[0-9]\|2\)" /tmp/r.txt | head -4; tail -6 /tmp/r.txt; echo
-nvm ls-remote --lts --no-colors | tail -4; ls -R $NVM_DIR/alias | head -12
-nvm version-remote 22; nvm version-remote --lts; nvm version-remote lts/iron
