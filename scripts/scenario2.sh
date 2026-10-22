@@ -101,3 +101,8 @@ t uninstall --lts=argon
 t uninstall iron
 t ls
 t alias
+# upstream removes aliases via a top-level glob (`grep -l "${NVM_DIR}/alias"/*`):
+# `lts/*` alias files survive even when they name the uninstalled version.
+t uninstall --lts=iron
+t alias lts/iron
+t alias

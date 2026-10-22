@@ -71,6 +71,7 @@ fn http_get(url: &str) -> Result<Vec<u8>, i32> {
 }
 
 fn download(url: &str, dest: &Path, progress: bool) -> Result<String, i32> {
+    let _ = ctrlc::set_handler(|| exit(130)); // partial tarball stays on disk for `Range:` resume
     let mut have = fs::metadata(dest).map(|m| m.len()).unwrap_or(0);
     let mut req = agent().get(url);
     if have > 0 {
@@ -88,16 +89,13 @@ fn download(url: &str, dest: &Path, progress: bool) -> Result<String, i32> {
         4
     })?;
     let st = resp.status().as_u16();
-    if st == 404 {
-        eprintln!("HTTP 404 at URL {url}");
-        return Err(5);
-    }
     if st == 416 {
-        have = 0;
         let _ = fs::remove_file(dest);
         return download(url, dest, progress);
     }
     if st >= 400 {
+        // curl --fail prints its own error line first
+        eprintln!("curl: (22) The requested URL returned error: {st}");
         eprintln!("download from {url} failed");
         return Err(4);
     }
@@ -177,14 +175,35 @@ fn extract(tarball: &Path, into: &Path) -> Result<(), i32> {
     Ok(())
 }
 
+/// `nvm_sanitize_path`: show `$NVM_DIR` and `$HOME` symbolically.
+fn sanitize(nvm_dir: &str, p: &Path) -> String {
+    let mut o = p.display().to_string();
+    if o != nvm_dir {
+        o = o.replace(nvm_dir, "${NVM_DIR}");
+    }
+    if let Ok(h) = std::env::var("HOME") {
+        if !h.is_empty() && o != h {
+            o = o.replace(&h, "${HOME}");
+        }
+    }
+    o
+}
+
 fn install(args: &[String]) -> i32 {
     let (mirror, ver, nvm_dir) = (&args[0], &args[1], &args[2]);
     let progress = !args.iter().any(|a| a == "--no-progress")
         && std::env::var("NVM_NO_PROGRESS").as_deref() != Ok("1");
     let offline = args.iter().any(|a| a == "--offline");
-    let slug = slug(ver);
+    let source = args.iter().any(|a| a == "--source");
+    let slug = if source {
+        format!("node-{ver}")
+    } else {
+        slug(ver)
+    };
     let file = format!("{slug}.tar.xz");
-    let cdir = Path::new(nvm_dir).join(".cache/bin").join(&slug);
+    let cdir = Path::new(nvm_dir)
+        .join(if source { ".cache/src" } else { ".cache/bin" })
+        .join(&slug);
     let tarball = cdir.join(&file);
     let _ = fs::create_dir_all(&cdir);
     let url = format!("{mirror}/{ver}/{file}");
@@ -205,14 +224,17 @@ fn install(args: &[String]) -> i32 {
 
     let mut have_cache = false;
     if tarball.exists() {
-        eprintln!("Local cache found: {}", tarball.display());
+        eprintln!("Local cache found: {}", sanitize(nvm_dir, &tarball));
         if offline {
-            eprintln!("Offline: using cached archive {}", tarball.display());
+            eprintln!(
+                "Offline: using cached archive {}",
+                sanitize(nvm_dir, &tarball)
+            );
             have_cache = true;
         } else if sha_file(&tarball).ok().as_deref() == want.as_deref() && want.is_some() {
             eprintln!(
                 "Checksums match! Using existing downloaded archive {}",
-                tarball.display()
+                sanitize(nvm_dir, &tarball)
             );
             have_cache = true;
         } else {
@@ -243,17 +265,51 @@ fn install(args: &[String]) -> i32 {
         }
     }
     let files = cdir.join("files");
+    {
+        // Ctrl-C: drop the half-extracted tree, keep the (verified) tarball for next time.
+        let f = files.clone();
+        let _ = ctrlc::set_handler(move || {
+            let _ = fs::remove_dir_all(&f);
+            exit(130);
+        });
+    }
     let _ = fs::remove_dir_all(&files);
     if fs::create_dir_all(&files).is_err() || extract(&tarball, &files).is_err() {
         let _ = fs::remove_dir_all(&files);
         return 1;
     }
-    let vdir = Path::new(nvm_dir).join("versions/node").join(ver);
-    let _ = fs::create_dir_all(vdir.parent().unwrap());
-    let _ = fs::remove_dir_all(&vdir);
-    if fs::rename(&files, &vdir).is_err() {
+    if source {
+        return 0; // caller builds in `files/`
+    }
+    // `nvm_version_path`: node < 0.12 lives in the old layout, `$NVM_DIR/vX.Y.Z`
+    let old_layout = {
+        let n: Vec<u64> = ver
+            .trim_start_matches('v')
+            .split('.')
+            .filter_map(|x| x.parse().ok())
+            .collect();
+        n.len() == 3 && (n[0], n[1]) < (0, 12)
+    };
+    let vdir = if old_layout {
+        Path::new(nvm_dir).join(ver)
+    } else {
+        Path::new(nvm_dir).join("versions/node").join(ver)
+    };
+    let parent = vdir.parent().unwrap_or_else(|| Path::new("."));
+    let _ = fs::create_dir_all(parent);
+    // Swap safely: move the previous install aside and restore it if the rename below fails,
+    // instead of deleting it before the new files exist. `.old-*` names start with a dot, so
+    // version enumeration (`starts_with('v')`) never picks them up.
+    let old = parent.join(format!(".old-{slug}"));
+    let _ = fs::remove_dir_all(&old);
+    if vdir.exists() && fs::rename(&vdir, &old).is_err() {
         return 1;
     }
+    if fs::rename(&files, &vdir).is_err() {
+        let _ = fs::rename(&old, &vdir);
+        return 1;
+    }
+    let _ = fs::remove_dir_all(&old);
     0
 }
 

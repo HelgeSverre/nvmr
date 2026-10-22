@@ -70,7 +70,7 @@ Must be byte-compatible; the shell nvm and the native nvm may share it.
 | `alias/lts/*` | A file literally named `*` → content `lts/<newest-codename>`. |
 | `alias/default` | User's default. Auto-created by the first `nvm install` if absent. |
 | `.cache/bin/<slug>/<slug>.<ext>` | Downloaded binary tarball; `<slug>` = `node-vX.Y.Z-<os>-<arch>`. |
-| `.cache/bin/<slug>/files/` | Extraction scratch dir (removed on success). |
+| `.cache/bin/<slug>/files/` | Extraction scratch dir (removed on success). Binary installs move any previous version dir to `versions/node/.old-<slug>` first and restore it if the swap rename fails. |
 | `.cache/src/node-vX.Y.Z/` | Source tarball cache. |
 | `.cache/locks/<version>` | Install lock **directory** (atomic `mkdir`). |
 | `default-packages` | One npm package spec per line, `#` comments, blank lines ignored. A line with whitespace inside is an error. |
@@ -301,7 +301,7 @@ If `$NVM_DIR/default-packages` exists and is non-empty: stdout `Installing defau
 
 ### 6.2 `uninstall <version>` | `--lts` | `--lts=<name>`
 
-Exactly one arg else usage rc 127. Resolve via `nvm_match_version` (`--lts`/`lts/*`/`lts/x` forms). Equals current → `nvm: Cannot uninstall currently-active node version, vX (inferred from <arg>).` rc 1. Not installed → `Version 'vX' (inferred from <arg>) is not installed.` (or `Version '<arg>' is not installed.` when nothing to infer) **rc 0**. Permission check (every file writable or owned by the user, recursively, not following symlinks) fails → `Cannot uninstall, incorrect permissions on installation folder.` + chown/chmod hints, rc 1. Delete `.cache/bin/<slug>/files`, `.cache/src/node-vX/files`, `<versionDir>`; stdout `Uninstalled node vX`. Then every alias file whose content mentions the version (`grep -l`) is removed via `nvm unalias <name>` (which prints its own line).
+Exactly one arg else usage rc 127. Resolve via `nvm_match_version` (`--lts`/`lts/*`/`lts/x` forms). Equals current → `nvm: Cannot uninstall currently-active node version, vX (inferred from <arg>).` rc 1. Not installed → `Version 'vX' (inferred from <arg>) is not installed.` (or `Version '<arg>' is not installed.` when nothing to infer) **rc 0**. Permission check (every file writable or owned by the user, recursively, not following symlinks) fails → `Cannot uninstall, incorrect permissions on installation folder.` + chown/chmod hints, rc 1. Delete `.cache/bin/<slug>/files`, `.cache/src/node-vX/files`, `<versionDir>`; stdout `Uninstalled node vX`. Then every alias file whose content mentions the version is removed via `nvm unalias <name>` (which prints its own line) — upstream's `grep -l` runs over the non-recursive, top-level glob `alias/*`, so `lts/*` files are never removed, and the match is a literal substring of the file content (comments included).
 
 ### 6.3 `use [--silent] [--lts[=x]] [--save|-w] [--delete-prefix] [<version>]`
 
@@ -743,20 +743,20 @@ Revisit trigger for this decision: a MUST in §13.2 that cannot be met in Rust a
 
 ## 15. Implementation status (2026-10-22)
 
-Implemented in Rust (`src/`), verified on Linux (arm64) inside Docker against upstream nvm v0.40.8 with `scripts/verify.sh` (clean build, 8 unit tests, 277 compared commands (7 scenarios), colour, bash, zsh, fish, portability):
-resolution (§3–4), PATH/MANPATH/NODE_PATH editing and the prefix guard (§5), every command in §6 except source builds (`install -s` and the source fallback print an explanatory message), `.nvmrc`, aliases, LTS maintenance, offline installs, install locks, third-party hook, `default-packages`, `--latest-npm`, `reinstall-packages`, colours and `set-colors`, `debug`, `unload`, system node, lazy mode, `nvm-exec`, installer, fish integration, static musl bundle.
+Implemented in Rust (`src/`), verified on Linux (arm64) inside Docker against upstream nvm v0.40.8 with `scripts/verify.sh` (clean build, unit tests, 373 compared commands (10 scenarios), colour, bash, zsh, fish, portability, Ctrl-C):
+resolution (§3–4), PATH/MANPATH/NODE_PATH editing and the prefix guard (§5), every command in §6 including source builds (`install -s`, the source fallback, `-j`, `NVM_MAKE_JOBS`, extra `configure` arguments; checked against a fake source-only mirror), `.nvmrc`, aliases, LTS maintenance, offline installs, install locks, third-party hook, `default-packages`, `--latest-npm`, `reinstall-packages`, colours and `set-colors`, `debug`, `unload`, system node, existing io.js installs (`versions/io.js`) and pre-0.12 installs in the old `$NVM_DIR/vX` layout (listed, resolved, used, run and uninstalled), lazy mode, `nvm-exec`, installer, fish integration, static musl bundle.
+
+Interrupts: Ctrl-C during a download keeps the partial tarball (the next install resumes it with `Range:`); during extraction it removes the half-extracted `files/` tree and keeps the verified tarball; in both cases `nvm install` returns 130 and releases its install lock. Upstream leaves the lock behind.
 
 Measured (Linux arm64 VM, medians): `nvm-core` hot commands 0.2–0.4 ms (budget 2–3 ms); `source nvm.sh` with auto-use 2.9 ms bash / 4.7 ms zsh versus 138 / 240 ms upstream; `nvm use` in a fresh shell 1.0 ms versus 67 ms; `nvm ls` with 122 versions 1.2 ms versus 670–2,063 ms. Static musl binaries: `nvm-core` 0.66 MB, `nvm-fetch` 1.97 MB. The glibc-dynamic `nvm-core` makes 93 syscalls on the `__auto use` path (budget 80); the static build was not re-measured.
 
-Not done: macOS build and measurements (the Security.framework startup budget in §13.2 is unverified); source builds; io.js installation; `NVM_AUTH_HEADER` is wired but untested; signal handling during downloads (partial tarballs are kept for resume, but Ctrl-C does not clean `files/`); upstream's urchin test suite (its tests call internal shell functions that the native build intentionally does not define).
+Not done: macOS build and measurements (the Security.framework startup budget in §13.2 is unverified); io.js installation (non-goal); `NVM_AUTH_HEADER` is untested against a real authenticated mirror; upstream's urchin test suite (its tests call internal shell functions that the native build intentionally does not define).
 
-Known remaining differences from upstream, found by an independent adversarial pass and deliberately not fixed (rare in practice; each is a small, local change if needed):
-- Locally installed io.js versions (`versions/io.js/*`) are ignored by `ls`, `version`, `use`.
+Known remaining differences from upstream, deliberately not fixed (rare in practice; each is a small, local change if needed):
 - Junk entries in `versions/node` (non-version directory names) are skipped, upstream lists them; a directory named like a version but without `bin/node` is listed in both, symlinked and plain-file entries are skipped in both.
-- Alias-file parsing: leading whitespace is trimmed (upstream yields `N/A`), a two-line alias file uses the first line only, a self-referencing alias shows `∞` at creation (upstream `N/A`), and over-long alias names fail silently instead of printing `tee`'s error.
-- Odd version-ish strings that upstream's regexes accept or reject: `.20`, `20*`, `lts/-0`, `nvm version -- 20`, `which 0` on fake 0.x layouts.
+- Alias-file parsing: leading whitespace is trimmed (upstream yields `N/A`), a two-line alias file uses the first line only (upstream also lists a bogus alias named after the second line), and over-long alias names fail with rc 1 instead of printing `tee`'s error and rc 0.
+- `nvm version 20*` resolves to `N/A` (upstream's glob accepts it); `ls unstable` with no odd 0.x installed prints one `N/A` line fewer.
 - `NVM_COLORS` with invalid codes: upstream prints `Invalid color code: z` per bad code, native falls back silently to the default palette.
-- `ls current` prints `N/A` in native where upstream prints the current row; `ls unstable` prints one `N/A` line fewer; `ls-remote --lts --lts` prints `N/A` without the star.
-- `install` with bare option-only invocations (`-s`, `--alias`, `--alias=`, `--offline` and no version/.nvmrc): usage in native, "No version provided..." then continuation in upstream; `install lts/*` also prints `Installing latest LTS version.`.
-- Invalid `.nvmrc` with `install --offline`; bare `nvm use --save current` edge cases.
+- `install` with bare option-only invocations (`-s`, `--alias`, `--alias=`, `--offline` and no version/.nvmrc): usage in native; upstream prints "No version provided..." and then installs the latest node (from source with `-s`). `install lts/*` also prints `Installing latest LTS version.`.
+- Invalid `.nvmrc` with `install --offline`.
 - Read-only `NVM_DIR`: `alias` creation failures exit 1 silently instead of printing the underlying `mkdir`/`tee` error.

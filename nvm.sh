@@ -36,7 +36,13 @@ nvm() {
     # One spawn per call: nvm-core queues shell statements in a per-shell file (truncated by the shell, no mktemp/rm).
     __nvm_ef="$NVM_DIR/.cache/eval.$$"
   else
-    __nvm_ef="$(command mktemp "${TMPDIR:-/tmp}/nvm-eval.XXXXXX")" || return 1
+    if ! __nvm_ef="$(command mktemp "${TMPDIR:-/tmp}/nvm-eval.XXXXXX" 2>/dev/null)"; then
+      # $TMPDIR may be unset, bogus or point at a read-only mount with /tmp still usable.
+      __nvm_ef="$(command mktemp "/tmp/nvm-eval.XXXXXX" 2>/dev/null)" || {
+        nvm_err 'nvm: could not create a temporary eval file (mktemp failed; check $TMPDIR)'
+        return 1
+      }
+    fi
   fi
   NVM_EVAL_FILE="$__nvm_ef" NVM_SHELL="${NVM_SHELL:-$([ -n "${ZSH_VERSION-}" ] && echo zsh || echo bash)}" \
     command "${NVM_CORE:-$NVM_DIR/nvm-core}" "$@"

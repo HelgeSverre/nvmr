@@ -1,0 +1,33 @@
+# Starts a fake nodejs.org mirror on 127.0.0.1:8099 serving source-only releases (no binaries => 404 => source fallback).
+rm -rf /srv/dist /tmp/mk; mkdir -p /srv/dist /tmp/mk
+for spec in v22.99.0:ok v22.98.0:fail v22.97.0:ok v22.96.0:ok; do
+  ver=${spec%%:*}; mode=${spec##*:}
+  d=/tmp/mk/node-$ver; mkdir -p $d
+  {
+    echo '#!/bin/sh'
+    echo 'for a in "$@"; do case $a in --prefix=*) P=${a#--prefix=};; esac; done'
+    echo 'echo "configure args: $*"'
+    [ $mode = fail ] && echo 'echo "configure: error: fake failure"; exit 1'
+    echo 'echo "PREFIX=$P" > Makefile'
+    echo "cat >> Makefile <<'MK'"
+    echo 'all:'
+    printf '\t@echo "building with CC=$(CC) CXX=$(CXX)"\n'
+    echo 'install:'
+    printf '\tmkdir -p $(PREFIX)/bin $(PREFIX)/lib/node_modules/npm\n'
+    printf '\tprintf "#!/bin/sh\\necho %s\\n" > $(PREFIX)/bin/node\n' "$ver"
+    printf '\tprintf "#!/bin/sh\\necho 10.0.0\\n" > $(PREFIX)/bin/npm\n'
+    printf '\tchmod +x $(PREFIX)/bin/node $(PREFIX)/bin/npm\n'
+    printf '\techo "{\\"version\\": \\"10.0.0\\"}" > $(PREFIX)/lib/node_modules/npm/package.json\n'
+    echo 'MK'
+  } > $d/configure
+  chmod +x $d/configure
+  mkdir -p /srv/dist/$ver
+  tar -C /tmp/mk -cJf /srv/dist/$ver/node-$ver.tar.xz node-$ver
+  (cd /srv/dist/$ver && sha256sum node-$ver.tar.xz | sed 's/ \*\?/  /' > SHASUMS256.txt)
+done
+printf 'version\tdate\tfiles\tnpm\tv8\tuv\tzlib\topenssl\tmodules\tlts\tsecurity\n' > /srv/dist/index.tab
+for v in v22.99.0 v22.98.0 v22.97.0 v22.96.0; do printf '%s\t2026-01-01\tsrc\t-\t-\t-\t-\t-\t-\t-\t-\n' $v >> /srv/dist/index.tab; done
+python3 -m http.server 8099 --bind 127.0.0.1 -d /srv >/dev/null 2>&1 &
+SRV_PID=$!  # compare.sh kills it; a live child keeps the script from exiting
+sleep 1
+export NVM_NODEJS_ORG_MIRROR=http://127.0.0.1:8099/dist

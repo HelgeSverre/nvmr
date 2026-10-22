@@ -18,6 +18,7 @@ sha2 = "0.10"
 flate2 = "1"
 tar = "0.4"
 liblzma = { version = "0.4", features = ["static"] }
+ctrlc = "3"
 
 [profile.release]
 opt-level = 3

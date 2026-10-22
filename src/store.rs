@@ -13,6 +13,11 @@ pub fn parse_ver(s: &str) -> Option<Ver> {
     Some((a, b, c))
 }
 
+/// Version without the `iojs-` flavour prefix.
+pub fn bare(s: &str) -> &str {
+    s.strip_prefix("iojs-").unwrap_or(s)
+}
+
 pub fn ensure_v(s: &str) -> String {
     if s.starts_with(|c: char| c.is_ascii_digit()) {
         format!("v{s}")
@@ -26,25 +31,48 @@ pub struct Store {
 }
 
 impl Store {
+    /// `nvm_version_path`: io.js under `versions/io.js`, node < 0.12 in the old layout (`$NVM_DIR/vX`).
     pub fn version_dir(&self, v: &str) -> PathBuf {
+        if let Some(r) = v.strip_prefix("iojs-") {
+            return self.dir.join("versions/io.js").join(r);
+        }
+        if parse_ver(v).map_or(false, |x| x < (0, 12, 0)) {
+            return self.dir.join(v);
+        }
         self.dir.join("versions/node").join(v)
     }
 
-    /// Installed versions, ascending.
+    /// Installed versions of every flavour, ascending (io.js entries are named `iojs-vX.Y.Z`).
     pub fn installed(&self) -> Vec<(Ver, String)> {
-        let mut out: Vec<(Ver, String)> = fs::read_dir(self.dir.join("versions/node"))
-            .into_iter()
-            .flatten()
-            .flatten()
-            .filter_map(|e| {
-                let n = e.file_name().into_string().ok()?;
+        self.installed_flavour(true, true)
+    }
+
+    /// Upstream's `nvm_ls` enumeration: node = old layout + `versions/node`, io.js = `versions/io.js`.
+    /// Sorted numerically across flavours; one entry per number (`sort -u`, node wins).
+    pub fn installed_flavour(&self, node: bool, iojs: bool) -> Vec<(Ver, String)> {
+        let scan = |dir: PathBuf, prefix: &str, out: &mut Vec<(Ver, String)>| {
+            for e in fs::read_dir(dir).into_iter().flatten().flatten() {
+                let Ok(n) = e.file_name().into_string() else {
+                    continue;
+                };
                 if !e.file_type().map(|t| t.is_dir()).unwrap_or(false) {
-                    return None; // upstream's `find -type d` ignores files and symlinks
+                    continue; // upstream's `find -type d` ignores files and symlinks
                 }
-                Some((parse_ver(&n).filter(|_| n.starts_with('v'))?, n))
-            })
-            .collect();
-        out.sort();
+                if let Some(v) = parse_ver(&n).filter(|_| n.starts_with('v')) {
+                    out.push((v, format!("{prefix}{n}")));
+                }
+            }
+        };
+        let mut out = vec![];
+        if node {
+            scan(self.dir.clone(), "", &mut out);
+            scan(self.dir.join("versions/node"), "", &mut out);
+        }
+        if iojs {
+            scan(self.dir.join("versions/io.js"), "iojs-", &mut out);
+        }
+        out.sort_by_key(|(v, n)| (*v, n.starts_with("iojs-")));
+        out.dedup_by_key(|x| x.0);
         out
     }
 
@@ -150,18 +178,28 @@ impl Store {
         })
     }
 
-    /// Highest installed version matching a (partial) pattern like `20`, `v20.11`.
-    pub fn match_partial(&self, pat: &str) -> Option<String> {
+    /// Installed versions matching a (partial) pattern like `20`, `v20.11`, `iojs-v3`, ascending.
+    /// A bare number searches every flavour; an `iojs-` pattern only io.js.
+    pub fn matching(&self, pat: &str) -> Vec<String> {
+        let (iojs_only, pat) = match pat.strip_prefix("iojs-") {
+            Some(r) => (true, r),
+            None => (false, pat),
+        };
         let pat = pat.strip_prefix('v').unwrap_or(pat).trim_end_matches('.');
-        if pat.is_empty() {
-            return self.installed().pop().map(|x| x.1);
-        }
         let pfx = format!("{pat}.");
-        self.installed()
+        self.installed_flavour(!iojs_only, true)
             .into_iter()
-            .rev()
-            .find(|(_, n)| n[1..].starts_with(&pfx) || n[1..] == *pat)
             .map(|x| x.1)
+            .filter(|n| {
+                let b = &bare(n)[1..];
+                pat.is_empty() || b.starts_with(&pfx) || b == pat
+            })
+            .collect()
+    }
+
+    /// Highest installed version matching a (partial) pattern.
+    pub fn match_partial(&self, pat: &str) -> Option<String> {
+        self.matching(pat).pop()
     }
 
     /// §4.3 `nvm_version`: Ok(resolved) or Err("N/A" | "∞").
@@ -170,7 +208,30 @@ impl Store {
             return Ok(self.ls_current(&std::env::var("PATH").unwrap_or_default()));
         }
         let pattern = match pattern {
-            "node" | "node-" | "stable" => return self.match_partial("").ok_or("N/A"),
+            "node" | "node-" | "stable" => {
+                return self
+                    .installed_flavour(true, false)
+                    .pop()
+                    .map(|x| x.1)
+                    .ok_or("N/A")
+            }
+            "iojs" | "iojs-" => {
+                return self
+                    .installed_flavour(false, true)
+                    .pop()
+                    .map(|x| x.1)
+                    .ok_or("N/A")
+            }
+            // implicit alias: the newest odd `0.x` minor
+            "unstable" => {
+                return self
+                    .installed_flavour(true, false)
+                    .into_iter()
+                    .rev()
+                    .find(|((maj, min, _), _)| *maj == 0 && min % 2 == 1)
+                    .map(|x| x.1)
+                    .ok_or("N/A")
+            }
             p => p,
         };
         if pattern.contains("..") {
@@ -204,23 +265,35 @@ impl Store {
                 None => Err("N/A"),
             };
         }
-        if parse_ver(&p).is_some() && self.is_installed(&p) {
-            return Ok(p);
+        if parse_ver(&p).is_some() {
+            // an exact `vX.Y.Z` is node first, else the io.js build of that number
+            if self.is_installed(&p) {
+                return Ok(p);
+            }
+            let io = format!("iojs-{p}");
+            if self.is_installed(&io) {
+                return Ok(io);
+            }
         }
         self.match_partial(&p).ok_or("N/A")
     }
 
     pub fn ls_current(&self, path_env: &str) -> String {
-        let root = self.dir.join("versions/node");
         for d in path_env.split(':') {
             let node = Path::new(d).join("node");
             if node.is_file() {
-                return match Path::new(d).strip_prefix(&root) {
-                    Ok(rest) => rest
-                        .components()
-                        .next()
-                        .map_or("system".into(), |c| c.as_os_str().to_string_lossy().into()),
-                    Err(_) => "system".into(),
+                let Ok(rest) = Path::new(d).strip_prefix(&self.dir) else {
+                    return "system".into();
+                };
+                let parts: Vec<String> = rest
+                    .components()
+                    .map(|c| c.as_os_str().to_string_lossy().into_owned())
+                    .collect();
+                return match parts.iter().map(String::as_str).collect::<Vec<_>>()[..] {
+                    ["versions", "io.js", v, ..] => format!("iojs-{v}"),
+                    ["versions", _, v, ..] => v.to_string(),
+                    [v, ..] => v.to_string(),
+                    [] => "system".into(),
                 };
             }
         }

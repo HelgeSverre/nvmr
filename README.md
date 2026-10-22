@@ -35,9 +35,9 @@ Shell support: bash, zsh, dash/POSIX sh, and fish (`nvm.fish`, installed to `con
 
 ## Not supported
 
-Building Node from source (`install -s`; binary installs only), installing io.js (io.js is still listed and recognised),
-Windows/MSYS, SunOS/AIX/BSD. Linux and macOS are the targets. Locally installed io.js versions under `versions/io.js` are not listed or resolved (the remote io.js list is). **macOS has not been built or tested yet**:
-everything here was developed and verified on Linux inside Docker.
+Installing io.js (existing io.js installs under `versions/io.js` and pre-0.12 node installs in the old `$NVM_DIR/vX`
+layout are listed, resolved, used and uninstalled like upstream), Windows/MSYS, SunOS/AIX/BSD. Linux and macOS are the
+targets. **macOS has not been built or tested yet**: everything here was developed and verified on Linux inside Docker.
 
 ## Development (everything runs in Docker, nothing on the host)
 
@@ -53,8 +53,11 @@ and upstream nvm v0.40.8 at `/opt/nvm-upstream`.
 The gate (`scripts/all.sh`) runs the same command sequences through upstream nvm and `nvm-core`, with real downloads, and
 diffs stdout, stderr, exit codes and the resulting shell environment:
 
-- `scenario*.sh`: 277 commands (resolution, install/uninstall, aliases, `.nvmrc`, `lts/*`, npm prefix guard, system node,
-  offline and mirror errors, locks, hooks, global package reinstall, ...)
+- `scenario*.sh`: 373 commands (resolution, install/uninstall, aliases, `.nvmrc`, `lts/*`, npm prefix guard, system node,
+  offline and mirror errors, locks, hooks, global package reinstall, source builds against a fake mirror, io.js and
+  old-layout installs, ...)
+- `sigint-test.sh`: Ctrl-C mid-download (partial tarball kept and resumed), mid-extraction (no half-extracted tree), and
+  during `nvm install` (rc 130, install lock released)
 - `colour-cmp.sh`: coloured output on a pseudo-terminal
 - `shell-test.sh`, `fish-test.sh`: bash/zsh/fish sessions including the README `cdnvm`/`chpwd` auto-switch recipes
 - `portability.sh`: dash, bash `--posix`, `set -eu`, lazy modes, completion
