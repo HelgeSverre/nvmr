@@ -32,6 +32,17 @@ pub fn http_get(url: &str) -> Result<String, i32> {
     Ok(String::from_utf8_lossy(&out.stdout).into_owned())
 }
 
+fn key(v: &str) -> Ver {
+    parse_ver(v.strip_prefix("iojs-").unwrap_or(v)).unwrap_or((0, 0, 0))
+}
+
+/// io.js rows (recognition only): `iojs-vX.Y.Z`, no LTS data.
+pub fn iojs_rows() -> Result<Vec<Row>, i32> {
+    let m = env::var("NVM_IOJS_ORG_MIRROR").unwrap_or_else(|_| "https://iojs.org/dist".into());
+    let body = http_get(&format!("{}/index.tab", m.trim_end_matches('/')))?;
+    Ok(body.lines().skip(1).filter_map(|l| l.split('\t').next()).filter(|v| v.starts_with('v')).map(|v| Row { ver: format!("iojs-{v}"), lts: None, latest_of_line: false }).collect())
+}
+
 /// Fetch index.tab, rewrite alias/lts/*, return rows ascending by version.
 pub fn index(st: &Store) -> Result<Vec<Row>, i32> {
     let body = http_get(&format!("{}/index.tab", mirror()))?;
@@ -59,7 +70,7 @@ pub fn index(st: &Store) -> Result<Vec<Row>, i32> {
         }
         rows.push(Row { ver: c[0].into(), lts, latest_of_line: latest });
     }
-    rows.sort_by_key(|r| parse_ver(&r.ver).unwrap_or((0, 0, 0)));
+    rows.sort_by_key(|r| key(&r.ver));
     Ok(rows)
 }
 
@@ -68,12 +79,16 @@ pub fn lts_name(st: &Store, arg: &str) -> Result<String, (String, i32)> {
     if let Some(n) = arg.strip_prefix('-').and_then(|n| n.parse::<usize>().ok()) {
         let mut names: Vec<String> = fs::read_dir(st.dir.join("alias/lts")).into_iter().flatten().flatten().filter_map(|e| e.file_name().into_string().ok()).filter(|n| n != "*").collect();
         names.sort();
-        return names.len().checked_sub(n).and_then(|i| names.get(i).cloned()).ok_or(("That many LTS releases do not exist yet.".into(), 2));
+        return names.len().checked_sub(n + 1).and_then(|i| names.get(i).cloned()).ok_or(("That many LTS releases do not exist yet.".into(), 2));
     }
     if arg != arg.to_lowercase() {
         return Err(("LTS names must be lowercase".into(), 3));
     }
     Ok(arg.to_string())
+}
+
+pub fn sort_rows(rows: &mut [Row]) {
+    rows.sort_by_key(|r| key(&r.ver));
 }
 
 pub fn filter<'a>(rows: &'a [Row], lts: Option<&str>, pattern: Option<&str>) -> Vec<&'a Row> {
@@ -109,9 +124,14 @@ pub fn resolve<'a>(st: &Store, rows: &'a [Row], pattern: &str, lts: Option<&str>
 
 pub fn format_row(r: &Row, installed: bool, current: bool, show_lts: bool) -> String {
     let mut s = if current { format!("->{:>13}", r.ver) } else { format!("{:>15}", r.ver) };
-    s += if installed || current { " *" } else { "  " };
+    if installed || current {
+        s += " *";
+    }
     if show_lts {
         if let Some(n) = &r.lts {
+            if !(installed || current) {
+                s += "  ";
+            }
             s += &if r.latest_of_line { format!(" (Latest LTS: {n})") } else { format!(" (LTS: {n})") };
         }
     }

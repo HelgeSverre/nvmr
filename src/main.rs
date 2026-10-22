@@ -116,7 +116,8 @@ fn run(cx: &mut Ctx, args: &[String]) -> i32 {
         "run" => cmd_run(cx, rest),
         "__auto" => cmd_auto(cx, rest),
         other => {
-            eprintln!("nvm: command '{other}' is not implemented in this build yet.\n{HELP_HINT}");
+            let _ = other;
+            eprint!("{HELP}");
             127
         }
     }
@@ -285,12 +286,12 @@ fn cmd_deactivate(cx: &mut Ctx, rest: &[String]) -> i32 {
     let np = pathedit::strip_path(&path, "/bin", &cx.nvm_dir);
     if np == path {
         if !silent {
-            eprintln!("Could not find {}/*/bin in {}", "${NVM_DIR}", "${PATH}");
+            eprintln!("Could not find {}/*/bin in ${{PATH}}", cx.nvm_dir);
         }
     } else {
         cx.ev.export("PATH", &np);
         if !silent {
-            println!("${{NVM_DIR}}/*/bin removed from ${{PATH}}");
+            println!("{}/*/bin removed from ${{PATH}}", cx.nvm_dir);
         }
     }
     if let Ok(m) = env::var("MANPATH") {
@@ -317,17 +318,22 @@ fn cmd_alias(cx: &mut Ctx, rest: &[String]) -> i32 {
     let a: Vec<&String> = rest.iter().filter(|a| !a.starts_with("--")).collect();
     match a.as_slice() {
         [] => {
-            list_aliases(cx);
+            list_aliases(cx, None);
             0
         }
-        [name] => {
-            if let Some(t) = cx.st.read_alias(name) {
-                print_alias(cx, name, &t);
+        [pat] if pat.starts_with("lts/") => match cx.st.read_alias(pat) {
+            Some(t) => {
+                println!("{t}");
                 0
-            } else {
-                eprintln!("Alias {name} doesn't exist!");
+            }
+            None => {
+                eprintln!("Alias {pat} doesn't exist!");
                 3
             }
+        },
+        [pat] => {
+            list_aliases(cx, Some(pat));
+            0
         }
         [name, target] => {
             if target.is_empty() {
@@ -407,11 +413,14 @@ fn walk_aliases(dir: &std::path::Path, prefix: &str, out: &mut Vec<String>) {
     }
 }
 
-fn list_aliases(cx: &Ctx) {
+fn list_aliases(cx: &Ctx, pat: Option<&str>) {
     let mut names = vec![];
     walk_aliases(&cx.st.dir.join("alias"), "", &mut names);
     names.sort();
+    let p = pat.unwrap_or("");
     let (lts, user): (Vec<_>, Vec<_>) = names.into_iter().partition(|n| n.starts_with("lts/"));
+    let user: Vec<String> = user.into_iter().filter(|n| n.starts_with(p)).collect();
+    let lts: Vec<String> = lts.into_iter().filter(|n| n.starts_with(p)).collect();
     for n in &user {
         if let Some(t) = cx.st.read_alias(n) {
             print_alias(cx, n, &t);
@@ -429,7 +438,7 @@ fn list_aliases(cx: &Ctx) {
         }
     }
     let implicit = |name: &str, val: Option<String>| {
-        if has(name) {
+        if has(name) || (pat.is_some() && name != p) {
             return;
         }
         match val {
@@ -447,7 +456,9 @@ fn list_aliases(cx: &Ctx) {
     };
     implicit("iojs", None);
     implicit("node", Some("stable".into()));
-    implicit("stable", stable);
+    if stable.is_some() {
+        implicit("stable", stable);
+    }
     implicit("unstable", unstable);
     for n in &lts {
         if let Some(t) = cx.st.read_alias(n) {
@@ -473,7 +484,10 @@ fn cmd_ls(cx: &mut Ctx, rest: &[String]) -> i32 {
         None => cx.st.installed().into_iter().map(|x| x.1).collect(),
     };
     if list.is_empty() {
-        println!("{:>15}", "N/A");
+        println!("{:>15} *", "N/A");
+        if pat.is_none() && !no_alias {
+            list_aliases(cx, None);
+        }
         return 3;
     }
     for v in &list {
@@ -484,7 +498,7 @@ fn cmd_ls(cx: &mut Ctx, rest: &[String]) -> i32 {
         }
     }
     if pat.is_none() && !no_alias {
-        list_aliases(cx);
+        list_aliases(cx, None);
     }
     0
 }
@@ -546,14 +560,22 @@ fn cmd_ls_remote(cx: &mut Ctx, rest: &[String]) -> i32 {
         Ok(x) => x,
         Err(c) => return c,
     };
-    let rows = match remote::index(&cx.st) {
+    let mut rows = match remote::index(&cx.st) {
         Ok(r) => r,
         Err(c) => return c,
     };
+    if pat.is_none() && lts.is_none() {
+        if let Ok(mut io) = remote::iojs_rows() {
+            rows.append(&mut io);
+            remote::sort_rows(&mut rows);
+        }
+    }
     let cur = cx.st.ls_current(&env::var("PATH").unwrap_or_default());
-    let sel = remote::filter(&rows, lts.as_deref(), pat.as_deref());
+    let node_alias = pat.as_deref() == Some("node");
+    let sel = remote::filter(&rows, lts.as_deref(), if node_alias { None } else { pat.as_deref() });
+
     if sel.is_empty() {
-        println!("{:>15}", "N/A");
+        println!("{:>15} *", "N/A");
         return 3;
     }
     let mut out = String::new();
@@ -562,12 +584,22 @@ fn cmd_ls_remote(cx: &mut Ctx, rest: &[String]) -> i32 {
         out.push('\n');
     }
     print!("{out}");
-    0
+    // Upstream quirk (v0.40.8): a positional pattern without --lts exits 3 even on success.
+    if pat.is_some() && lts.is_none() && !node_alias {
+        3
+    } else {
+        0
+    }
 }
 
 fn cmd_version_remote(cx: &mut Ctx, rest: &[String]) -> i32 {
     let (lts, pat) = match lts_filter(cx, rest) {
         Ok(x) => x,
+        // Upstream quirk: prints the message twice, then a blank line, and exits 0.
+        Err(3) => {
+            eprintln!("LTS names must be lowercase\n");
+            return 0;
+        }
         Err(c) => return c,
     };
     let rows = match remote::index(&cx.st) {
