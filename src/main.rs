@@ -236,6 +236,7 @@ fn run(cx: &mut Ctx, args: &[String]) -> i32 {
                 }
             }
         }
+        "debug" => cmd_debug(cx),
         "__auto" => cmd_auto(cx, rest),
         "__ls" => cmd_raw_ls(cx, rest),
         "exec-internal" => cmd_exec_internal(cx, rest),
@@ -1243,8 +1244,30 @@ fn cmd_install(cx: &mut Ctx, rest: &[String]) -> i32 {
     if was_installed {
         eprintln!("{ver} is already installed.");
     } else {
+        let mut hooked = false;
+        if let Ok(hook) = env::var("NVM_INSTALL_THIRD_PARTY_HOOK") {
+            if !hook.is_empty() {
+                println!("** $NVM_INSTALL_THIRD_PARTY_HOOK env var set; dispatching to third-party installation method **");
+                let vd = cx.st.version_dir(&ver);
+                let st = Command::new(&hook).args([ver.as_str(), "node", "std", if src_only { "source" } else { "binary" }]).arg(&vd).status();
+                let code = st.ok().and_then(|s| s.code()).unwrap_or(1);
+                if code != 0 {
+                    eprintln!("*** Third-party $NVM_INSTALL_THIRD_PARTY_HOOK env var failed to install! ***");
+                    return code;
+                }
+                if !cx.st.is_installed(&ver) {
+                    eprintln!("*** Third-party $NVM_INSTALL_THIRD_PARTY_HOOK env var claimed to succeed, but failed to install! ***");
+                    return 33;
+                }
+                hooked = true;
+            }
+        }
+        if !hooked {
+        let _lock = match InstallLock::acquire(cx, &ver) {
+            Ok(l) => l,
+            Err(c) => return c,
+        };
         println!("Downloading and installing node {ver}...");
-        let _ = std::fs::create_dir_all(cx.st.dir.join(".cache/locks"));
         let mut cmd = Command::new(remote::fetch_bin());
         cmd.args(["install", &remote::mirror(), &ver, &cx.nvm_dir]).args(&passthru);
         let st = cmd.status();
@@ -1257,6 +1280,7 @@ fn cmd_install(cx: &mut Ctx, rest: &[String]) -> i32 {
             eprintln!("Binary download failed, trying source.");
             eprintln!("Source builds are not supported by this build of nvm.");
             return code;
+        }
         }
         if !valid(cx) {
             eprintln!("The install of {ver} reported success but failed verification; not activating it.");
@@ -1494,4 +1518,90 @@ fn cmd_run(cx: &mut Ctx, rest: &[String]) -> i32 {
         }
         Err(code) => code,
     }
+}
+
+/// Per-version advisory install lock (`mkdir` is atomic), removed on drop (§6.1 step 2).
+struct InstallLock(Option<PathBuf>);
+
+impl InstallLock {
+    fn acquire(cx: &Ctx, ver: &str) -> Result<InstallLock, i32> {
+        let root = cx.st.dir.join(".cache/locks");
+        if fs::create_dir_all(&root).is_err() {
+            return Ok(InstallLock(None));
+        }
+        let name: String = ver.chars().map(|c| if c.is_ascii_alphanumeric() || "._+-".contains(c) { c } else { '_' }).collect();
+        let lock = root.join(name);
+        let timeout: u64 = env::var("NVM_INSTALL_LOCK_TIMEOUT").ok().and_then(|v| v.parse().ok()).unwrap_or(600);
+        let stale: u64 = env::var("NVM_INSTALL_LOCK_STALE").ok().and_then(|v| v.parse().ok()).unwrap_or(0);
+        let (mut waited, mut announced) = (0u64, false);
+        while fs::create_dir(&lock).is_err() {
+            if stale > 0 {
+                let old = fs::metadata(&lock).and_then(|m| m.modified()).ok().and_then(|t| t.elapsed().ok()).map_or(false, |a| a.as_secs() > stale * 60);
+                if old {
+                    eprintln!("Removing stale install lock for {ver} (older than {stale} minute(s))");
+                    let _ = fs::remove_dir_all(&lock);
+                    continue;
+                }
+            }
+            if waited >= timeout {
+                eprintln!("Timed out after {timeout}s waiting for another install of {ver} to finish.\nIf no other install is running, remove {} and try again.", lock.display());
+                return Err(1);
+            }
+            if !announced {
+                eprintln!("Waiting for another install of {ver} to finish...");
+                announced = true;
+            }
+            std::thread::sleep(std::time::Duration::from_secs(1));
+            waited += 1;
+        }
+        Ok(InstallLock(Some(lock)))
+    }
+}
+
+impl Drop for InstallLock {
+    fn drop(&mut self) {
+        if let Some(p) = &self.0 {
+            let _ = fs::remove_dir(p).or_else(|_| fs::remove_dir_all(p));
+        }
+    }
+}
+
+fn cmd_debug(cx: &mut Ctx) -> i32 {
+    let run = |c: &str, a: &[&str]| Command::new(c).args(a).output().ok().map(|o| String::from_utf8_lossy(&[o.stdout, o.stderr].concat()).trim().to_string()).unwrap_or_default();
+    eprintln!("nvm --version: v0.40.8");
+    eprintln!("nvm-core: {} ({}-{})", env!("CARGO_PKG_VERSION"), env::consts::OS, env::consts::ARCH);
+    if let Ok(t) = env::var("TERM_PROGRAM") {
+        eprintln!("$TERM_PROGRAM: {t}");
+    }
+    let shell = env::var("SHELL").unwrap_or_default();
+    eprintln!("$SHELL: {shell}");
+    eprintln!("$SHLVL: {}", env::var("SHLVL").unwrap_or_default());
+    eprintln!("whoami: '{}'", run("whoami", &[]));
+    eprintln!("${{HOME}}: {}", env::var("HOME").unwrap_or_default());
+    eprintln!("${{NVM_DIR}}: '{}'", sanitize(cx, &cx.nvm_dir));
+    eprintln!("${{PATH}}: {}", sanitize(cx, &env::var("PATH").unwrap_or_default()));
+    eprintln!("$PREFIX: '{}'", sanitize(cx, &env::var("PREFIX").unwrap_or_default()));
+    eprintln!("${{NPM_CONFIG_PREFIX}}: '{}'", sanitize(cx, &env::var("NPM_CONFIG_PREFIX").unwrap_or_default()));
+    eprintln!("$NVM_NODEJS_ORG_MIRROR: '{}'", env::var("NVM_NODEJS_ORG_MIRROR").unwrap_or_default());
+    eprintln!("$NVM_IOJS_ORG_MIRROR: '{}'", env::var("NVM_IOJS_ORG_MIRROR").unwrap_or_default());
+    if !shell.is_empty() {
+        eprintln!("shell version: '{}'", run(&shell, &["--version"]).lines().next().unwrap_or(""));
+    }
+    let un = run("uname", &["-a"]);
+    let un: Vec<&str> = un.split_whitespace().enumerate().filter(|(i, _)| *i != 1).map(|(_, w)| w).collect();
+    eprintln!("uname -a: '{}'", un.join(" "));
+    eprintln!("checksum binary: 'built-in sha256'");
+    let osv = if cfg!(target_os = "macos") { run("sw_vers", &[]).lines().filter_map(|l| l.split_whitespace().nth(1)).collect::<Vec<_>>().join(" ") } else { fs::read_to_string("/etc/os-release").ok().and_then(|t| t.lines().find_map(|l| l.strip_prefix("PRETTY_NAME=").map(|v| v.trim_matches('"').to_string()))).unwrap_or_default() };
+    if !osv.is_empty() {
+        eprintln!("OS version: {osv}");
+    }
+    let cur = cx.st.ls_current(&env::var("PATH").unwrap_or_default());
+    eprintln!("nvm current: {cur}");
+    for (label, tool) in [("which node", "node"), ("which iojs", "iojs"), ("which npm", "npm")] {
+        let p = env::var("PATH").unwrap_or_default().split(':').map(|d| std::path::Path::new(d).join(tool)).find(|f| f.is_file()).map(|f| f.display().to_string()).unwrap_or_default();
+        eprintln!("{label}: {}", sanitize(cx, &p));
+    }
+    eprintln!("npm config get prefix: {}", sanitize(cx, &run("npm", &["config", "get", "prefix"])));
+    eprintln!("npm root -g: {}", sanitize(cx, &run("npm", &["root", "-g"])));
+    42
 }
