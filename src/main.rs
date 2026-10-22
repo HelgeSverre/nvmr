@@ -203,6 +203,18 @@ fn run(cx: &mut Ctx, args: &[String]) -> i32 {
             }
         }
         "__auto" => cmd_auto(cx, rest),
+        "__ls" => cmd_raw_ls(cx, rest),
+        "exec-internal" => cmd_exec_internal(cx, rest),
+        "__rcversion" => {
+            let Some(f) = find_nvmrc(&env::current_dir().unwrap_or_default()) else { return 1 };
+            match parse_nvmrc(&fs::read_to_string(&f).unwrap_or_default()) {
+                Ok(v) => {
+                    println!("{}\n{v}", f.display());
+                    0
+                }
+                Err(_) => 2,
+            }
+        }
         other => {
             let _ = other;
             eprint!("{HELP}");
@@ -694,26 +706,107 @@ fn cmd_ls(cx: &mut Ctx, rest: &[String]) -> i32 {
 }
 
 /// §9.1 `__auto use`: `.nvmrc` in ancestry, else `default`; no-op when already right.
+/// `__auto <use|cd|install>`: `use` = upstream source-time semantics (§9.1); `cd` = chpwd semantics (.nvmrc else default).
 fn cmd_auto(cx: &mut Ctx, rest: &[String]) -> i32 {
-    if rest.first().map(String::as_str) != Some("use") {
-        return 0;
-    }
-    let cwd = env::current_dir().unwrap_or_default();
-    let want = find_nvmrc(&cwd)
-        .and_then(|f| fs::read_to_string(f).ok())
-        .and_then(|c| parse_nvmrc(&c).ok())
-        .unwrap_or_else(|| "default".into());
-    let Ok(target) = cx.st.version(&want) else { return 0 };
-    if !cx.st.is_installed(&target) {
-        return 0;
-    }
     let path = env::var("PATH").unwrap_or_default();
-    if cx.st.ls_current(&path) == target && env::var("NVM_BIN").is_ok() {
-        return 0;
+    let cur = cx.st.ls_current(&path);
+    let nvmrc = |_cx: &Ctx| {
+        find_nvmrc(&env::current_dir().unwrap_or_default()).and_then(|f| fs::read_to_string(f).ok()).and_then(|c| parse_nvmrc(&c).ok())
+    };
+    match rest.first().map(String::as_str) {
+        Some("use") => {
+            if cur == "none" || cur == "system" {
+                match cx.st.read_alias("default") {
+                    Some(_) => match cx.st.version("default") {
+                        Ok(v) if cx.st.is_installed(&v) => cmd_use(cx, &[v, "--silent".into()]),
+                        _ => 0,
+                    },
+                    None => {
+                        if nvmrc(cx).is_some() {
+                            cmd_use(cx, &["--silent".to_string()])
+                        } else {
+                            0
+                        }
+                    }
+                }
+            } else {
+                cmd_use(cx, &[cur, "--silent".into()])
+            }
+        }
+        Some("cd") => {
+            let want = nvmrc(cx).unwrap_or_else(|| "default".into());
+            let Ok(target) = cx.st.version(&want) else { return 0 };
+            if !cx.st.is_installed(&target) {
+                return 0;
+            }
+            if cur == target && env::var("NVM_BIN").is_ok() {
+                return 0;
+            }
+            cmd_use(cx, &[target, "--silent".into()])
+        }
+        Some("install") => {
+            let def = cx.st.read_alias("default");
+            match def {
+                Some(d) if cx.st.version(&d).is_ok() || d.chars().next().map_or(false, |c| c.is_ascii_digit() || c == 'v') => cmd_install(cx, &[d]),
+                _ => {
+                    if nvmrc(cx).is_some() {
+                        cmd_install(cx, &[])
+                    } else {
+                        0
+                    }
+                }
+            }
+        }
+        _ => {
+            eprintln!("Invalid auto mode supplied.");
+            1
+        }
     }
-    cmd_use(cx, &[target, "--silent".into()])
 }
 
+/// Raw installed versions for shell helpers (`nvm_ls`).
+fn cmd_raw_ls(cx: &mut Ctx, rest: &[String]) -> i32 {
+    let pat = rest.first().map(|p| ensure_v(p));
+    for (_, n) in cx.st.installed() {
+        if pat.as_ref().map_or(true, |p| format!("{n}.").starts_with(&format!("{}.", p.trim_end_matches('.')))) {
+            println!("{n}");
+        }
+    }
+    0
+}
+
+/// `nvm-exec` replacement: NODE_VERSION or .nvmrc, then exec the command with the selected node first on PATH.
+fn cmd_exec_internal(cx: &mut Ctx, rest: &[String]) -> i32 {
+    let sel = match env::var("NODE_VERSION").ok().filter(|v| !v.is_empty()) {
+        Some(v) => match cx.st.version(&v) {
+            Ok(r) if cx.st.is_installed(&r) => Ok(r),
+            _ => {
+                not_installed(cx, &v, false);
+                return 127;
+            }
+        },
+        None => {
+            let rc = find_nvmrc(&env::current_dir().unwrap_or_default()).and_then(|f| fs::read_to_string(f).ok()).and_then(|c| parse_nvmrc(&c).ok());
+            match rc {
+                Some(v) => match cx.st.version(&v) {
+                    Ok(r) if cx.st.is_installed(&r) => Ok(r),
+                    _ => {
+                        not_installed(cx, &v, true);
+                        Err(())
+                    }
+                },
+                None => Err(()),
+            }
+        }
+    };
+    match sel {
+        Ok(v) => run_with(cx, &v, rest),
+        Err(()) => {
+            eprintln!("nvm-exec: unable to select a node version\n  Set `NODE_VERSION` (e.g. `NODE_VERSION=default`), or add an `.nvmrc` file.");
+            127
+        }
+    }
+}
 // ---- remote commands ----
 
 /// Split `--lts`, `--lts=x`, `lts/x` forms. Returns (lts filter, remaining pattern).
