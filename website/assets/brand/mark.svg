@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" fill="none">
+  <title>nvmr switch mark</title>
+  <style>:root{--color-accent:oklch(53% 0.22 260);--color-accent-ink:oklch(99% 0.003 250)}</style>
+  <rect width="48" height="48" rx="9" fill="var(--color-accent)"/>
+  <path d="M11 32V16h9l8 16h9V16" stroke="var(--color-accent-ink)" stroke-width="4.5" stroke-linejoin="round"/>
+</svg>

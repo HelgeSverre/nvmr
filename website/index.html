@@ -1,0 +1,147 @@
+<!doctype html>
+<!-- Hallmark · pre-emit critique: P5 H5 E4 S5 R5 V4 -->
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="description" content="nvmr is a native Node.js version manager written in Rust. Keep your nvm commands, .nvmrc files, and installed versions. Get started with installation and quick docs.">
+    <meta name="color-scheme" content="light">
+    <title>nvmr — Switch Node. Keep your flow.</title>
+    <link rel="icon" href="./assets/brand/mark.svg" type="image/svg+xml">
+    <link rel="preload" href="./assets/fonts/space-grotesk-latin.woff2" as="font" type="font/woff2" crossorigin>
+    <link rel="stylesheet" href="./site.css">
+    <script src="./site.js" defer></script>
+  </head>
+  <body>
+    <a class="skip-link" href="#main">Skip to content</a>
+    <header class="nav">
+      <div class="container nav-inner">
+        <a class="brand" href="#" aria-label="nvmr home"><img src="./assets/brand/mark.svg" width="32" height="32" alt="">nvmr</a>
+        <nav class="nav-links" aria-label="Main navigation">
+          <a href="#install">Install</a>
+          <a href="#docs">Quick docs</a>
+          <a href="#compatibility">Compatibility</a>
+        </nav>
+        <a class="nav-source text-link" href="../README.md">Read the README <span aria-hidden="true">↗</span></a>
+      </div>
+    </header>
+    <main id="main" tabindex="-1">
+      <section class="hero container" aria-labelledby="hero-title">
+        <div class="hero-layout">
+          <div>
+            <h1 id="hero-title">Switch Node.<br><span>Keep your flow.</span></h1>
+            <p class="hero-copy">Node.js version management in Rust. Keep your nvm commands, installed versions, aliases, and <code>.nvmrc</code> files.</p>
+            <div class="hero-actions">
+              <a class="button" href="#install">Install nvmr <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><path d="M5 12h14m-6-6 6 6-6 6"/></svg></a>
+              <a class="text-link" href="#docs">Find a command <span aria-hidden="true">↓</span></a>
+            </div>
+            <p class="hero-note"><strong>Linux verified</strong><span>macOS target · not yet tested</span></p>
+          </div>
+          <figure class="command-sheet">
+            <figcaption>The commands you already know.</figcaption>
+            <pre aria-label="Example nvm commands"><code><span class="code-comment"># Install the latest LTS</span>
+<span class="code-prompt">$ </span>nvm install --lts
+
+<span class="code-comment"># Switch for this project</span>
+<span class="code-prompt">$ </span>nvm use
+
+<span class="code-comment"># Set your everyday default</span>
+<span class="code-prompt">$ </span>nvm alias default 22</code></pre>
+            <div class="code-caption">nvmr is the project. <code>nvm</code> is the compatible shell command.</div>
+          </figure>
+        </div>
+        <div class="compat-strip" aria-label="Compatibility features">
+          <span><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="m4 10 4 4 8-8"/></svg>nvm v0.40.8 parity target</span>
+          <span>Same <code>$NVM_DIR</code> layout</span>
+          <span>bash · zsh · POSIX sh · fish</span>
+        </div>
+      </section>
+
+      <section class="install section" id="install" aria-labelledby="install-title">
+        <div class="container install-layout">
+          <div class="install-intro">
+            <h2 id="install-title">Get up and running.</h2>
+            <p>On a Linux host with Docker running, build the bundle from your checkout and install it into your nvm directory.</p>
+            <div class="install-note"><strong>Already using nvm?</strong><p>Your Node versions and aliases stay in <code>$NVM_DIR</code>. The installer replaces the integration files and reuses your existing profile entry.</p></div>
+          </div>
+          <div class="code-block">
+            <div class="code-heading"><h3>From the repository root · Linux bundle</h3><button class="copy-button" type="button" data-copy="install-code" aria-label="Copy installation commands">Copy</button></div>
+            <pre><code id="install-code">docker build -t nvmr-dev docker
+scripts/d.sh sh /src/scripts/bundle.sh
+
+NVMR_BUNDLE="dist/nvmr-linux-$(docker run --rm nvmr-dev uname -m)" sh install.sh</code></pre>
+            <p class="install-footnote">Then open a new terminal. <a href="../install.sh">Inspect the installer</a>.</p>
+          </div>
+        </div>
+      </section>
+
+      <section class="section container" id="docs" aria-labelledby="docs-title">
+        <div class="section-head"><h2 id="docs-title">A small field guide.</h2><p>Install a version, switch projects, carry on. All commands run through the <code>nvm</code> shell function after installation.</p></div>
+        <div class="docs-layout">
+          <dl class="command-list">
+            <div><dt><code>nvm install --lts</code></dt><dd>Install and use the latest LTS.</dd></div>
+            <div><dt><code>nvm use 22</code></dt><dd>Switch to an installed Node 22.</dd></div>
+            <div><dt><code>nvm ls</code></dt><dd>List installed versions and aliases.</dd></div>
+            <div><dt><code>nvm current</code></dt><dd>Show the active Node version.</dd></div>
+            <div><dt><code>nvm exec 22 node app.js</code></dt><dd>Run a command with a chosen version.</dd></div>
+            <div><dt><code>nvm alias default 22</code></dt><dd>Choose the version for new shells.</dd></div>
+            <div><dt><code>nvm --help</code></dt><dd>Read the complete command reference.</dd></div>
+          </dl>
+          <div>
+            <article class="recipe">
+              <div class="code-heading"><h3>Let the project choose.</h3><button class="copy-button" type="button" data-copy="nvmrc-code" aria-label="Copy nvmrc commands">Copy</button></div>
+              <pre><code id="nvmrc-code">echo "22" &gt; .nvmrc
+nvm install
+nvm use</code></pre>
+              <p>Commit <code>.nvmrc</code> alongside your code. The version follows the project.</p>
+            </article>
+            <article class="recipe">
+              <div class="code-heading"><h3>Prefer the name nvmr?</h3><button class="copy-button" type="button" data-copy="alias-code" aria-label="Copy nvmr alias">Copy</button></div>
+              <pre><code id="alias-code">alias nvmr='nvm'
+nvmr use 22</code></pre>
+              <p>Add the alias after loading nvm in your shell profile. Both names reach the same implementation; existing <code>nvm</code> scripts keep working.</p>
+            </article>
+          </div>
+        </div>
+      </section>
+
+      <section class="performance" aria-labelledby="performance-title">
+        <div class="container performance-layout">
+          <div class="performance-intro"><h2 id="performance-title">Built around the fast path.</h2><p>Everyday commands go through a native Rust core. Downloads and extraction live in a separate process, keeping that machinery off the version-switching path.</p><p>A thin shell function applies the environment changes where they belong: in your current shell.</p></div>
+          <div>
+            <table class="benchmark">
+              <caption>Under the hood</caption>
+              <thead><tr><th scope="col">Layer</th><th scope="col">Responsibility</th></tr></thead>
+              <tbody>
+                <tr><td><code>nvm.sh</code> / <code>nvm.fish</code></td><td>Your shell environment</td></tr>
+                <tr><td><code>nvmr</code></td><td>Versions, aliases, and paths</td></tr>
+                <tr><td><code>nvmr-fetch</code></td><td>HTTPS, checksums, extraction</td></tr>
+              </tbody>
+            </table>
+            <p class="benchmark-note">Performance figures will be published with saved results from the pinned <a href="../bench/bench.py">benchmark harness</a>. <a href="../nvm-compat-spec.md">Read the architecture and performance budgets</a>.</p>
+          </div>
+        </div>
+      </section>
+
+      <section class="section container" id="compatibility" aria-labelledby="compatibility-title">
+        <div class="compat-layout">
+          <div class="compat-copy"><h2 id="compatibility-title">Keep your setup.</h2><p>Compatibility is the point: familiar commands, output, exit codes, and the same on-disk layout.</p><p>The reference is <a href="https://github.com/nvm-sh/nvm/tree/v0.40.8">nvm-sh/nvm v0.40.8</a>. This is an independent Rust implementation.</p><a class="text-link" href="../nvm-compat-spec.md">Read the compatibility spec <span aria-hidden="true">↗</span></a></div>
+          <div class="faq">
+            <details open><summary>Will I need to reinstall Node?</summary><p>The installer shares your existing <code>$NVM_DIR</code>, including versions and aliases. It copies the native binaries and shell integration into that directory. Keep a backup of your previous integration files if you want to restore them later.</p></details>
+            <details><summary>Which shells work?</summary><p>bash, zsh, dash/POSIX sh, and fish. The installer adds profile lines for POSIX shells when needed and installs fish integration into <code>conf.d</code> when fish is available.</p></details>
+            <details><summary>Is there a lazy mode?</summary><p>Set <code>NVM_LAZY=1</code> before loading <code>nvm.sh</code> to defer automatic version selection until first use of nvm or a Node command. Fish skips startup auto-use in lazy mode; run <code>nvm use</code> yourself.</p></details>
+            <details><summary>What are the current limits?</summary><p>Linux has been built and tested in Docker. macOS is a target and has not yet been built or tested. Windows/MSYS, SunOS, AIX, and BSD are outside the current scope. Installing io.js is unsupported; existing io.js and old-layout Node installs are recognized. The <a href="../nvm-compat-spec.md#15-implementation-status-2026-10-22">known edge-case differences</a> are documented in the specification.</p></details>
+            <details><summary>Why the nvm command?</summary><p>nvmr is the canonical project name. Keeping the shell function named <code>nvm</code> preserves existing commands and scripts. The optional <code>nvmr</code> alias above gives you the branded spelling too.</p></details>
+          </div>
+        </div>
+      </section>
+    </main>
+    <footer class="footer">
+      <div class="container footer-inner">
+        <div class="footer-credit"><a class="brand" href="#"><img src="./assets/brand/mark.svg" width="24" height="24" alt="">nvmr</a><p>Native speed. Familiar commands.</p></div>
+        <nav class="footer-links" aria-label="Project resources"><a href="../README.md">README</a><a href="./BRAND.md">Brand guide</a><a href="../src/help.txt">Command reference</a></nav>
+      </div>
+    </footer>
+    <p class="sr-only" id="copy-status" role="status" aria-live="polite"></p>
+  </body>
+</html>

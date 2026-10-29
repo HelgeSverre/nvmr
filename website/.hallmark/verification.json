@@ -1,0 +1,18 @@
+{
+  "date": "2026-10-22",
+  "review": "Hallmark manual gate review plus browser and static checks",
+  "slop_test": {"passed": 58, "total": 58, "non_applicable_gates": "passed by absence"},
+  "self_critique": {"philosophy": 5, "hierarchy": 5, "execution": 4, "specificity": 5, "restraint": 5, "variety": 4},
+  "responsive_widths": [320, 375, 414, 768, 1280, 1440],
+  "responsive": "No horizontal overflow; controls remain readable; narrow navigation and disclosure labels checked",
+  "laptop_fold": "At 1280x800, headline, description, primary action, and command example fit in the first screen",
+  "contrast": "WCAG ratios checked for 14 foreground/background token pairs; body text and button labels exceed 4.5:1",
+  "interactions": "Browser copy success and keyboard disclosure; isolated JavaScript checks for exact payload, loading, disabled, success, reset, rejected clipboard recovery, and API-unavailable fallback",
+  "browser_errors": [],
+  "resources": "Page resources, document links, and section anchors resolve",
+  "fonts": "Local WOFF2 files with bundled SIL OFL licenses",
+  "secondary_detector": "Two advisory overused-font warnings; Space Grotesk and Inter retained as the explicitly selected Hallmark Cobalt pairing",
+  "runtime": "No runtime source, shell integration, or installer changes made by this design task",
+  "relocation": "Website, assets, brand guide, and design records moved into website/; 48 local references verified; JavaScript syntax and git diff whitespace checks passed",
+  "repository_gate": "scripts/verify.sh: ALL GREEN (format, Clippy, unit tests, release build, all ten parity scenarios, color output, shell integration, read-only installs, interruption handling, portability)"
+}

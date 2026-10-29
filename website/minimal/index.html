@@ -1,0 +1,210 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="nvmr: a native reimplementation of nvm v0.40.8 in Rust. Installation, usage, configuration, compatibility.">
+<title>nvmr — every nvm command, none of the wait</title>
+<link rel="preload" href="../assets/fonts/quattrocento-700-latin.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="icon" href="../assets/brand/mark.svg" type="image/svg+xml">
+<style>
+  :root {
+    color-scheme: light dark;
+    --bg: #fff; --fg: #1a1a1a; --muted: #666; --rule: #e5e5e5; --code-bg: #f5f5f5; --link: #0066bb;
+    --brand: #0066bb;
+    --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg: #111; --fg: #e6e6e6; --muted: #999; --rule: #2a2a2a; --code-bg: #1b1b1b; --link: #6fb3f0; --brand: #4a9fe8; }
+  }
+  @font-face { font-family: "Quattrocento"; font-weight: 700; font-display: swap;
+    src: url(../assets/fonts/quattrocento-700-latin.woff2) format("woff2"); }
+  ::selection { background: color-mix(in srgb, var(--brand) 25%, transparent); }
+  :focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; }
+  * { box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; }
+  body {
+    margin: 0; background: var(--bg); color: var(--fg);
+    font: 16px/1.6 system-ui, -apple-system, "Segoe UI", sans-serif;
+  }
+  .wrap { max-width: 46rem; margin: 0 auto; padding: 3rem 1.25rem 4rem; }
+  header { border-bottom: 1px solid var(--rule); padding-bottom: 1.25rem; margin-bottom: 2rem; }
+  header { padding-top: 1rem; }
+  h1 { font: 700 clamp(4.5rem, 19vw, 9.5rem)/.82 "Quattrocento", Georgia, serif; letter-spacing: -.035em;
+       color: var(--brand); margin: 0 0 1.25rem; margin-left: -.05em; }
+  .tagline { font: 700 clamp(1.4rem, 4vw, 2rem)/1.15 "Quattrocento", Georgia, serif; letter-spacing: -.01em; margin: 0 0 .75rem; text-wrap: balance; }
+  .lede { margin: 0; color: var(--muted); max-width: 38rem; }
+  .bench td:not(:first-child), .bench th:not(:first-child) { text-align: right; font-variant-numeric: tabular-nums; }
+  .bench td.x { color: var(--brand); font-weight: 650; }
+  .bench caption { caption-side: bottom; text-align: left; font-size: .8rem; color: var(--muted); padding-top: .4rem; }
+  nav { margin-top: 1rem; font-size: .9rem; }
+  nav a { margin-right: 1rem; }
+  h2 { font: 700 1.75rem/1.2 "Quattrocento", Georgia, serif; letter-spacing: -.01em; margin: 3.25rem 0 .75rem; }
+  h3 { font-size: 1rem; margin: 1.75rem 0 .5rem; }
+  a { color: var(--link); text-underline-offset: 2px; }
+  code, pre { font-family: var(--mono); font-size: .875rem; }
+  :not(pre) > code { background: var(--code-bg); padding: .1em .3em; border-radius: 3px; }
+  pre { background: var(--code-bg); padding: .875rem 1rem; overflow-x: auto; border-radius: 4px; line-height: 1.5; }
+  table { border-collapse: collapse; width: 100%; font-size: .925rem; margin: .5rem 0 1rem; }
+  th, td { text-align: left; vertical-align: top; padding: .45rem .75rem .45rem 0; border-bottom: 1px solid var(--rule); }
+  th { font-weight: 600; }
+  td:first-child { white-space: nowrap; }
+  @media (max-width: 40rem) {
+    td:first-child { white-space: normal; }
+    th, td { padding-right: .5rem; }
+    nav a { display: inline-block; margin-bottom: .25rem; }
+  }
+  code { overflow-wrap: anywhere; }
+  .muted { color: var(--muted); }
+  footer { margin-top: 3.5rem; padding-top: 1rem; border-top: 1px solid var(--rule); font-size: .875rem; color: var(--muted); }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <h1>nvmr</h1>
+  <p class="tagline">Every nvm command. None of the wait.</p>
+  <p class="lede">A native drop-in for <a href="https://github.com/nvm-sh/nvm/tree/v0.40.8">nvm v0.40.8</a>, written in Rust. Same <code>nvm</code> command, same output and exit codes, same <code>.nvmrc</code> and <code>~/.nvm</code>. Nothing to learn, nothing to migrate.</p>
+  <nav>
+    <a href="#bench">Benchmarks</a><a href="#install">Install</a><a href="#usage">Usage</a><a href="#commands">Commands</a><a href="#config">Configuration</a><a href="#compat">Compatibility</a><a href="#design">Design</a>
+  </nav>
+</header>
+
+<main>
+
+<h2 id="bench">Benchmarks</h2>
+<h3>Docker reference run</h3>
+<table class="bench">
+  <tr><th>Operation</th><th>nvm</th><th>nvmr</th><th>Faster</th></tr>
+  <tr><td>Shell startup, bash</td><td>52.9 ms</td><td>0.66 ms</td><td class="x">80×</td></tr>
+  <tr><td>Shell startup, zsh</td><td>187 ms</td><td>0.91 ms</td><td class="x">205×</td></tr>
+  <tr><td><code>nvm use</code>, bash</td><td>108 ms</td><td>0.70 ms</td><td class="x">154×</td></tr>
+  <tr><td><code>nvm use</code>, zsh</td><td>145 ms</td><td>1.28 ms</td><td class="x">113×</td></tr>
+  <tr><td><code>nvm current</code>, bash</td><td>5.70 ms</td><td>0.32 ms</td><td class="x">18×</td></tr>
+  <caption>Reference run in Docker (aarch64, 2 pinned CPUs). Minimum per operation; the run was flagged noisy, so medians are not quoted. <a href="../../bench/results/20261022-180813-docker-aarch64/report.md">20261022-180813-docker-aarch64</a></caption>
+</table>
+<h3>Developer machine</h3>
+<table class="bench">
+  <tr><th>Operation</th><th>nvm</th><th>nvmr</th><th>Faster</th></tr>
+  <tr><td>Shell startup, bash</td><td>143 ms</td><td>3.08 ms</td><td class="x">46×</td></tr>
+  <tr><td>Shell startup, zsh</td><td>478 ms</td><td>3.68 ms</td><td class="x">130×</td></tr>
+  <tr><td><code>nvm use</code>, bash</td><td>201 ms</td><td>3.32 ms</td><td class="x">61×</td></tr>
+  <tr><td><code>nvm use</code>, zsh</td><td>346 ms</td><td>4.41 ms</td><td class="x">78×</td></tr>
+  <tr><td><code>nvm current</code>, bash</td><td>17.8 ms</td><td>2.74 ms</td><td class="x">6×</td></tr>
+  <caption>Developer machine (macOS, arm64, sandboxed). Minimum per operation; noisy run, medians not quoted. <a href="../../bench/results/20261022-162253-host-darwin-arm64/report.md">20261022-162253-host-darwin-arm64</a></caption>
+</table>
+<p>Startup is shell overhead with the integration loaded and the default version applied. Method: <a href="../../bench/bench.py">bench/bench.py</a>, <a href="../../nvm-compat-spec.md#13-performance-baseline-budgets-profiling-competitors">spec §13</a>.</p>
+
+<h2 id="status">Status</h2>
+<table>
+  <tr><th>Parity target</th><td>nvm-sh/nvm v0.40.8</td></tr>
+  <tr><th>Linux</th><td>Built and verified against upstream in Docker</td></tr>
+  <tr><th>macOS</th><td>Target; not yet built or tested</td></tr>
+  <tr><th>Shells</th><td>bash, zsh, dash/POSIX sh, fish</td></tr>
+  <tr><th>Out of scope</th><td>Windows/MSYS, SunOS, AIX, BSD; installing io.js</td></tr>
+  <tr><th>Distribution</th><td>From source only. No hosted downloads.</td></tr>
+</table>
+
+<h2 id="install">Install</h2>
+<p>Requires a Linux host with Docker. Run from the repository root:</p>
+<pre><code>docker build -t nvmr-dev docker
+scripts/d.sh sh /src/scripts/bundle.sh
+NVMR_BUNDLE="dist/nvmr-linux-$(docker run --rm nvmr-dev uname -m)" sh install.sh</code></pre>
+<p>Open a new shell, or load it into the current one:</p>
+<pre><code>export NVM_DIR="$HOME/.nvm"
+. "$NVM_DIR/nvm.sh"</code></pre>
+<p>The installer copies <code>nvm.sh</code>, <code>nvmr</code>, <code>nvmr-fetch</code>, <code>nvm-exec</code>, <code>bash_completion</code> and <code>nvm.fish</code> into <code>$NVM_DIR</code>. It adds a profile line if one is missing and installs fish integration into <code>conf.d</code> when fish is present.</p>
+<p>Installed Node versions and aliases are kept. Existing upstream integration files are overwritten, so back them up first if you want to roll back.</p>
+
+<h3>Installer variables</h3>
+<table>
+  <tr><th>Variable</th><th>Effect</th></tr>
+  <tr><td><code>NVMR_BUNDLE</code></td><td>Install from a local bundle directory.</td></tr>
+  <tr><td><code>NVMR_URL</code></td><td>Download <code>nvmr-&lt;os&gt;-&lt;arch&gt;.tar.gz</code> from this base URL.</td></tr>
+  <tr><td><code>NVM_DIR</code></td><td>Install directory. Default: <code>$XDG_CONFIG_HOME/nvm</code> if set, else <code>~/.nvm</code>.</td></tr>
+  <tr><td><code>PROFILE</code></td><td>Profile file to edit. <code>/dev/null</code> skips POSIX profile edits.</td></tr>
+</table>
+
+<h2 id="usage">Usage</h2>
+<pre><code>nvm install --lts          # install and use latest LTS
+nvm use 22                 # switch to installed 22.x
+nvm alias default 22       # default for new shells
+nvm current                # active version
+nvm ls                     # installed versions and aliases
+nvm exec 22 node app.js    # run a command under 22.x</code></pre>
+<p>Per-project version:</p>
+<pre><code>echo 22 &gt; .nvmrc
+nvm install
+nvm use</code></pre>
+
+<h2 id="commands">Commands</h2>
+<p><code>&lt;version&gt;</code> is a full or partial version (<code>22</code>, <code>v20.11</code>), a built-in alias (<code>node</code>, <code>stable</code>, <code>system</code>, <code>lts/*</code>, <code>lts/&lt;name&gt;</code>) or a user alias. Commands that take an optional version read <code>.nvmrc</code> when it is omitted.</p>
+<table>
+  <tr><th>Command</th><th>Description</th></tr>
+  <tr><td><code>install [&lt;version&gt;]</code></td><td>Download and install. Flags: <code>-s</code>, <code>-b</code>, <code>--lts[=name]</code>, <code>--reinstall-packages-from=</code>, <code>--latest-npm</code>, <code>--skip-default-packages</code>, <code>--offline</code>, <code>--no-progress</code>, <code>--alias=</code>, <code>--default</code>, <code>--save</code></td></tr>
+  <tr><td><code>uninstall &lt;version&gt;</code></td><td>Remove a version. Accepts <code>--lts[=name]</code>.</td></tr>
+  <tr><td><code>use [&lt;version&gt;]</code></td><td>Put a version on <code>PATH</code>. <code>--silent</code>, <code>--lts[=name]</code>, <code>--save</code></td></tr>
+  <tr><td><code>exec [&lt;version&gt;] &lt;cmd&gt;</code></td><td>Run a command under a version.</td></tr>
+  <tr><td><code>run [&lt;version&gt;] [&lt;args&gt;]</code></td><td>Run <code>node</code> under a version.</td></tr>
+  <tr><td><code>current</code></td><td>Active version, resolved through <code>$PATH</code>.</td></tr>
+  <tr><td><code>ls [&lt;version&gt;]</code></td><td>Installed versions. <code>--no-alias</code>, <code>--no-colors</code></td></tr>
+  <tr><td><code>ls-remote [&lt;version&gt;]</code></td><td>Available versions. <code>--lts[=name]</code></td></tr>
+  <tr><td><code>version &lt;version&gt;</code></td><td>Resolve to one local version.</td></tr>
+  <tr><td><code>version-remote &lt;version&gt;</code></td><td>Resolve to one remote version.</td></tr>
+  <tr><td><code>which [&lt;version&gt;]</code></td><td>Path to the node binary.</td></tr>
+  <tr><td><code>alias [&lt;name&gt; &lt;version&gt;]</code></td><td>List aliases, or set one.</td></tr>
+  <tr><td><code>unalias &lt;name&gt;</code></td><td>Delete an alias.</td></tr>
+  <tr><td><code>deactivate</code></td><td>Undo nvm's changes to this shell.</td></tr>
+  <tr><td><code>unload</code></td><td>Remove nvm from this shell.</td></tr>
+  <tr><td><code>reinstall-packages &lt;version&gt;</code></td><td>Reinstall global npm packages from another version.</td></tr>
+  <tr><td><code>install-latest-npm</code></td><td>Upgrade npm on the current version.</td></tr>
+  <tr><td><code>cache dir</code> / <code>cache clear</code></td><td>Show or empty the download cache.</td></tr>
+  <tr><td><code>set-colors [&lt;codes&gt;]</code></td><td>Set output colours (default <code>bygre</code>).</td></tr>
+</table>
+<p>Full reference: <code>nvm --help</code> or <a href="../../src/help.txt">src/help.txt</a>.</p>
+
+<h2 id="config">Configuration</h2>
+<p>Set these before sourcing <code>nvm.sh</code>.</p>
+<table>
+  <tr><th>Setting</th><th>Effect</th></tr>
+  <tr><td><code>NVM_LAZY=1</code></td><td>Defer auto-use until the first call to <code>nvm</code>, <code>node</code>, <code>npm</code>, <code>npx</code>, <code>corepack</code>, <code>yarn</code> or <code>pnpm</code>. In fish, skips auto-use at startup.</td></tr>
+  <tr><td><code>NVM_LAZY_PATH=1</code></td><td>With lazy mode: set <code>PATH</code> directly when the default alias names an installed exact version.</td></tr>
+  <tr><td><code>--no-use</code></td><td><code>. "$NVM_DIR/nvm.sh" --no-use</code> loads without selecting a version.</td></tr>
+  <tr><td><code>NVM_NO_SOURCE_FALLBACK=1</code></td><td>Make <code>install</code> binary-only by default.</td></tr>
+</table>
+<p>All other upstream variables (<code>NVM_NODEJS_ORG_MIRROR</code>, <code>NVM_DIR</code>, etc.) behave as in nvm v0.40.8.</p>
+
+<h2 id="compat">Compatibility</h2>
+<ul>
+  <li>Stdout, stderr, exit codes and resulting shell environment are diffed against upstream nvm for every scenario in the test suite.</li>
+  <li>Deliberate deviations are documented in <a href="../../nvm-compat-spec.md#12-deliberate-deviations-document-dont-hide">spec §12</a>.</li>
+  <li>Known differences are listed in <a href="../../nvm-compat-spec.md#15-implementation-status-2026-10-22">spec §15</a>.</li>
+  <li>Existing io.js and pre-0.12 Node installs can be listed, resolved, used and uninstalled. New io.js installs are not supported.</li>
+</ul>
+
+<h2 id="design">Design</h2>
+<table>
+  <tr><th>Component</th><th>Role</th></tr>
+  <tr><td><code>nvm.sh</code>, <code>nvm.fish</code></td><td>Thin shell function. Runs <code>nvmr</code> and applies the environment changes it emits.</td></tr>
+  <tr><td><code>nvmr</code></td><td>All command logic: resolution, aliases, <code>PATH</code>. Links only libc.</td></tr>
+  <tr><td><code>nvmr-fetch</code></td><td>HTTPS, checksum verification, extraction. Separate binary, kept off the switching path.</td></tr>
+  <tr><td><code>nvm-exec</code></td><td>Launches a command with a selected environment.</td></tr>
+</table>
+<p>A child process cannot modify its parent's environment, so a shell function remains necessary. Everything else is native.</p>
+
+<h2 id="dev">Development</h2>
+<pre><code>docker build -t nvmr-dev docker
+scripts/d.sh cargo build --release
+scripts/verify.sh</code></pre>
+<p><code>scripts/verify.sh</code> runs rustfmt, clippy (<code>-D warnings</code>), unit tests and the full upstream parity suite, including real downloads, interrupted installs, colour output, all shells and POSIX portability.</p>
+
+</main>
+
+<footer>
+  <a href="../../README.md">README</a> · <a href="../../nvm-compat-spec.md">Specification</a> · <a href="../../install.sh">install.sh</a> · <span class="muted">Shell command is <code>nvm</code>; project name is nvmr.</span>
+</footer>
+
+</div>
+</body>
+</html>

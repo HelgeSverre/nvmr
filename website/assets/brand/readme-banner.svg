@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="330" viewBox="0 0 1200 330" role="img" aria-labelledby="title description">
+  <title id="title">nvmr</title>
+  <desc id="description">Switch Node. Keep your flow. A native Node.js version manager written in Rust.</desc>
+  <style>:root{--color-paper:oklch(98.5% 0.004 250);--color-ink:oklch(24% 0.022 258);--color-muted:oklch(49% 0.025 258);--color-accent:oklch(53% 0.22 260);--color-accent-ink:oklch(99% 0.003 250);--color-rule:oklch(86% 0.014 250);--font-display:"Arial",sans-serif;--font-body:"Arial",sans-serif}text{font-family:var(--font-display)}</style>
+  <rect width="1200" height="330" rx="12" fill="var(--color-paper)"/>
+  <rect x="54" y="60" width="76" height="76" rx="14" fill="var(--color-accent)"/>
+  <path d="M72 111V85h14l13 26h14V85" fill="none" stroke="var(--color-accent-ink)" stroke-width="7" stroke-linejoin="round"/>
+  <text x="154" y="123" font-size="76" font-weight="700" letter-spacing="-4" fill="var(--color-ink)">nvmr</text>
+  <path d="M54 175h1092" stroke="var(--color-rule)"/>
+  <text x="54" y="235" font-size="42" font-weight="600" letter-spacing="-1.2" fill="var(--color-ink)">Switch Node. <tspan fill="var(--color-accent)">Keep your flow.</tspan></text>
+  <text x="56" y="280" font-size="23" fill="var(--color-muted)">Native speed. Familiar commands.</text>
+</svg>

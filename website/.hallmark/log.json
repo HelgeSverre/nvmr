@@ -1,0 +1,13 @@
+[
+  {
+    "date": "2026-10-22",
+    "macrostructure": "Workbench",
+    "theme": "Cobalt",
+    "nav": "N1b",
+    "footer": "Ft2",
+    "enrichment": "none",
+    "brief": "nvm-rs: README, marketing/install/docs one-pager, and brand guide for busy developers",
+    "theme_axes": "light / grotesk-sans / cool",
+    "adaptations": "CLI command-led workbench; no fake chrome, command palette, or decorative reveals"
+  }
+]

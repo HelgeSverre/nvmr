@@ -1,0 +1,11 @@
+{
+  "date": "2026-10-22",
+  "framework": "buildless HTML/CSS/JavaScript added to a Rust CLI repository",
+  "existing_design_system": null,
+  "existing_fonts": null,
+  "existing_palette": null,
+  "existing_spacing": null,
+  "motion": "motion-cut; button press feedback only",
+  "sources": ["../Cargo.toml:1", "../README.md:1", "../nvm.sh:1", "../install.sh:1"],
+  "preserve": ["runtime interfaces", "installer options", "bundle names", "compatibility reference"]
+}
