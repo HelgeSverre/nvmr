@@ -2,8 +2,8 @@
 # Installs native nvm into $NVM_DIR (default ~/.nvm, or $XDG_CONFIG_HOME/nvm when XDG_CONFIG_HOME is set)
 # and adds the same profile lines upstream's installer adds, so existing setups keep working.
 #
-#   NVM_FAST_BUNDLE=<dir>   directory containing nvm.sh nvm-core nvm-fetch nvm-exec bash_completion nvm.fish
-#   NVM_FAST_URL=<url>      or a base URL serving nvm-fast-<os>-<arch>.tar.gz
+#   NVMR_BUNDLE=<dir>   directory containing nvm.sh nvmr nvmr-fetch nvm-exec bash_completion nvm.fish
+#   NVMR_URL=<url>      or a base URL serving nvmr-<os>-<arch>.tar.gz
 #   NVM_DIR, PROFILE        same meaning as upstream install.sh (PROFILE=/dev/null leaves profiles alone)
 set -eu
 
@@ -17,18 +17,18 @@ os="$(uname -s | tr '[:upper:]' '[:lower:]')"
 arch="$(uname -m)"
 case "$arch" in x86_64 | amd64) arch=x86_64 ;; aarch64 | arm64) arch=aarch64 ;; esac
 
-if [ -n "${NVM_FAST_BUNDLE-}" ]; then
-  src="$NVM_FAST_BUNDLE"
-elif [ -n "${NVM_FAST_URL-}" ]; then
+if [ -n "${NVMR_BUNDLE-}" ]; then
+  src="$NVMR_BUNDLE"
+elif [ -n "${NVMR_URL-}" ]; then
   src="$(mktemp -d)"
   trap 'rm -rf "$src"' EXIT
-  curl -fsSL "${NVM_FAST_URL}/nvm-fast-${os}-${arch}.tar.gz" | tar -xz -C "$src"
+  curl -fsSL "${NVMR_URL}/nvmr-${os}-${arch}.tar.gz" | tar -xz -C "$src"
 else
-  echo "install.sh: set NVM_FAST_BUNDLE or NVM_FAST_URL" >&2
+  echo "install.sh: set NVMR_BUNDLE or NVMR_URL" >&2
   exit 1
 fi
 
-files="nvm.sh nvm-core nvm-fetch nvm-exec bash_completion nvm.fish"
+files="nvm.sh nvmr nvmr-fetch nvm-exec bash_completion nvm.fish"
 # Check the whole bundle first so a broken one never leaves a half-updated install.
 for f in $files; do
   [ -e "$src/$f" ] || { echo "install.sh: missing $src/$f" >&2; exit 1; }
@@ -36,7 +36,7 @@ done
 for f in $files; do
   cp "$src/$f" "$NVM_DIR/$f.new" && mv "$NVM_DIR/$f.new" "$NVM_DIR/$f"
 done
-chmod +x "$NVM_DIR/nvm-core" "$NVM_DIR/nvm-fetch" "$NVM_DIR/nvm-exec"
+chmod +x "$NVM_DIR/nvmr" "$NVM_DIR/nvmr-fetch" "$NVM_DIR/nvm-exec"
 
 # Profile detection (same order as upstream)
 profile="${PROFILE-}"

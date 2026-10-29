@@ -8,7 +8,7 @@ cmds=("ls" "alias" "ls 20" "ls 99" "alias default" "alias lts" "ls --no-colors" 
 for who in up nat; do
   mk; : > /tmp/col-$who.txt
   for c in "${cmds[@]}"; do
-    if [ $who = up ]; then init=". /opt/nvm-upstream/nvm.sh --no-use"; else init="NVM_CORE=/src/target/release/nvm-core; . /src/nvm.sh --no-use"; fi
+    if [ $who = up ]; then init=". /opt/nvm-upstream/nvm.sh --no-use"; else init="NVMR_EXE=/src/target/release/nvmr; . /src/nvm.sh --no-use"; fi
     { echo "== $c"; script -qec "bash -c '$init; nvm $c; echo rc=\$?'" /dev/null | cat -v; } >> /tmp/col-$who.txt
   done
   NVM_COLORS=cgYmW; export NVM_COLORS

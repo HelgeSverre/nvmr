@@ -46,7 +46,7 @@ fn main() {
     if env::var_os("NVM_TIMINGS").is_some_and(|v| v == "1") {
         let total = start.elapsed();
         eprintln!(
-            "nvm-core timings (µs): setup {} command {} eval-write {} total {}",
+            "nvmr timings (µs): setup {} command {} eval-write {} total {}",
             setup.as_micros(),
             (command - setup).as_micros(),
             (total - command).as_micros(),
@@ -172,7 +172,7 @@ fn run(cx: &mut Ctx, args: &[String]) -> i32 {
                 "NVM_MAKE_JOBS",
                 "NVM_INSTALL_LOCK",
                 "NVM_COLORS",
-                "NVM_CORE",
+                "NVMR_EXE",
             ] {
                 cx.ev.unset(v);
             }
@@ -1688,7 +1688,7 @@ fn cmd_debug(cx: &mut Ctx) -> i32 {
     };
     eprintln!("nvm --version: v0.40.8");
     eprintln!(
-        "nvm-core: {} ({}-{})",
+        "nvmr: {} ({}-{})",
         env!("CARGO_PKG_VERSION"),
         env::consts::OS,
         env::consts::ARCH

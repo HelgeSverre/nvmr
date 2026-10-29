@@ -2,11 +2,11 @@
 # NVM_LAZY=1 skips the startup auto-use (run `nvm use` yourself); the cd hook below still applies.
 set -q NVM_DIR; or set -gx NVM_DIR $HOME/.nvm
 
-function __nvm_core
-    if test -n "$NVM_CORE"
-        echo $NVM_CORE
+function __nvmr_exe
+    if test -n "$NVMR_EXE"
+        echo $NVMR_EXE
     else
-        echo $NVM_DIR/nvm-core
+        echo $NVM_DIR/nvmr
     end
 end
 
@@ -15,7 +15,7 @@ function nvm
         set argv --help
     end
     set -l f $NVM_DIR/.cache/eval.$fish_pid
-    set -l core (__nvm_core)
+    set -l core (__nvmr_exe)
     env NVM_EVAL_FILE=$f NVM_SHELL=fish $core $argv
     set -l rc $status
     if test -s $f
@@ -39,15 +39,15 @@ function nvm_find_nvmrc
 end
 
 function nvm_ls_current
-    set -l c (__nvm_core)
+    set -l c (__nvmr_exe)
     command $c current
 end
 function nvm_version
-    set -l c (__nvm_core)
+    set -l c (__nvmr_exe)
     command $c version $argv
 end
 
-# auto-switch on directory change (no process is spawned when nothing changes beyond nvm-core itself)
+# auto-switch on directory change (no process is spawned when nothing changes beyond nvmr itself)
 function __nvm_cd --on-variable PWD
     nvm __auto cd >/dev/null 2>&1
 end

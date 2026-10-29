@@ -30,13 +30,13 @@ pub fn mirror_ok(m: &str) -> bool {
 }
 
 pub fn fetch_bin() -> PathBuf {
-    if let Ok(p) = env::var("NVM_FETCH") {
+    if let Ok(p) = env::var("NVMR_FETCH") {
         return p.into();
     }
     env::current_exe()
         .ok()
-        .and_then(|e| e.parent().map(|d| d.join("nvm-fetch")))
-        .unwrap_or_else(|| "nvm-fetch".into())
+        .and_then(|e| e.parent().map(|d| d.join("nvmr-fetch")))
+        .unwrap_or_else(|| "nvmr-fetch".into())
 }
 
 pub fn http_get(url: &str) -> Result<String, i32> {
@@ -45,7 +45,7 @@ pub fn http_get(url: &str) -> Result<String, i32> {
         .stderr(std::process::Stdio::null())
         .output()
         .map_err(|_| {
-            eprintln!("nvm-fetch not found");
+            eprintln!("nvmr-fetch not found");
             1
         })?;
     if !out.status.success() {

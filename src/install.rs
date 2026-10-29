@@ -255,8 +255,8 @@ pub fn cmd_install(cx: &mut Ctx, rest: &[String]) -> i32 {
                 Ok(l) => l,
                 Err(c) => return c,
             };
-            // Ctrl-C reaches the whole foreground process group. The children (nvm-fetch, make) clean up and
-            // exit; nvm-core survives the signal so the lock above is released instead of going stale.
+            // Ctrl-C reaches the whole foreground process group. The children (nvmr-fetch, make) clean up and
+            // exit; nvmr survives the signal so the lock above is released instead of going stale.
             let _ = ctrlc::set_handler(|| INTERRUPTED.store(true, Ordering::SeqCst));
             let interrupted = || INTERRUPTED.load(Ordering::SeqCst);
             let binary_ok = parse_ver(&ver).is_some_and(|v| v >= (0, 8, 6));
@@ -359,7 +359,7 @@ pub fn cmd_install(cx: &mut Ctx, rest: &[String]) -> i32 {
     rc
 }
 
-/// Runs `nvm-fetch install`: download, verify and extract `ver`, then move it to `dest`
+/// Runs `nvmr-fetch install`: download, verify and extract `ver`, then move it to `dest`
 /// (binary install) or leave it in the source cache (`dest` = `None`). Returns the exit code.
 fn fetch(cx: &Ctx, ver: &str, dest: Option<&Path>, passthru: &[String]) -> i32 {
     let mut cmd = Command::new(remote::fetch_bin());

@@ -1,4 +1,4 @@
-//! The eval channel (§1.1): shell statements queued by `nvm-core` and sourced by the `nvm` function.
+//! The eval channel (§1.1): shell statements queued by `nvmr` and sourced by the `nvm` function.
 use std::collections::HashMap;
 use std::{env, fs};
 

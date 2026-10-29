@@ -1,6 +1,6 @@
 #!/bin/sh
 # Real-world benchmark on this machine (macOS arm64 or Linux), in an isolated sandbox: its own HOME, NVM_DIR
-# and FNM_DIR under bench/.sandbox, pinned nvm/fnm/node downloads verified by checksum, nvm-fast built from
+# and FNM_DIR under bench/.sandbox, pinned nvm/fnm/node downloads verified by checksum, nvmr built from
 # this checkout with `cargo build --release`. Your own ~/.nvm, fnm setup and shell profiles are never touched.
 # Results land in bench/results/<date>-host-<os>-<arch>/.
 #
@@ -41,16 +41,16 @@ if [ ! -d "$S/nvm" ]; then
 fi
 git -C "$S/nvm" checkout -q "$NVM_COMMIT"
 
-# nvm-fast from this checkout, laid out like an installed bundle.
+# nvmr from this checkout, laid out like an installed bundle.
 CARGO_TARGET_DIR="$S/target" cargo build --release --quiet --manifest-path "$ROOT/Cargo.toml"
-rm -rf "$S/nvm-fast" && mkdir -p "$S/nvm-fast"
-cp "$S/target/release/nvm-core" "$S/target/release/nvm-fetch" "$ROOT/nvm.sh" "$ROOT/nvm-exec" \
-  "$ROOT/bash_completion" "$ROOT/nvm.fish" "$S/nvm-fast/"
+rm -rf "$S/nvmr" && mkdir -p "$S/nvmr"
+cp "$S/target/release/nvmr" "$S/target/release/nvmr-fetch" "$ROOT/nvm.sh" "$ROOT/nvm-exec" \
+  "$ROOT/bash_completion" "$ROOT/nvm.fish" "$S/nvmr/"
 
 out="$B/results/$(date +%Y%m%d-%H%M%S)-host-$plat"
 mkdir -p "$out"
 cd "$B"
-python3 bench.py setup --root "$S/root" --nvm-src "$S/nvm" --fast-src "$S/nvm-fast" --fnm "$S/fnm-bin/fnm" \
+python3 bench.py setup --root "$S/root" --nvm-src "$S/nvm" --nvmr-src "$S/nvmr" --fnm "$S/fnm-bin/fnm" \
   --dist "$S/dist" >/dev/null
 BENCH_GIT="$(git -C "$ROOT" describe --always --dirty)" BENCH_WHERE="host $(uname -sm)" \
   python3 bench.py run --root "$S/root" --out "$out" --bash /bin/bash --zsh /bin/zsh "$@"

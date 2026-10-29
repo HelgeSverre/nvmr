@@ -4,7 +4,7 @@ rm -rf /tmp/sh; mkdir -p /tmp/sh/proj/a /tmp/sh/proj/b /tmp/sh/alias
 for v in v20.20.2 v22.12.0; do d=/tmp/sh/versions/node/$v/bin; mkdir -p $d; printf '#!/bin/sh\necho %s\n' $v > $d/node; chmod +x $d/node; done
 echo 22 > /tmp/sh/alias/default; echo 20 > /tmp/sh/proj/a/.nvmrc; echo 22.12.0 > /tmp/sh/proj/b/.nvmrc
 cat > /tmp/t.fish <<'FEOF'
-set -gx NVM_CORE /src/target/release/nvm-core
+set -gx NVMR_EXE /src/target/release/nvmr
 source /src/nvm.fish
 echo "start: node="(command -v node)" v="(node -v)" cur="(nvm current)" bin=$NVM_BIN"
 nvm use 20

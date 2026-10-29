@@ -1,6 +1,6 @@
 #!/bin/sh
 # Syntax + sourcing checks of nvm.sh under dash, bash (--posix too), zsh, busybox-style sh.
-export NVM_DIR=/tmp/pt NVM_CORE=/src/target/release/nvm-core
+export NVM_DIR=/tmp/pt NVMR_EXE=/src/target/release/nvmr
 rm -rf /tmp/pt; mkdir -p /tmp/pt/versions/node/v20.1.0/bin /tmp/pt/alias; printf '#!/bin/sh\necho v20.1.0\n' > /tmp/pt/versions/node/v20.1.0/bin/node; chmod +x /tmp/pt/versions/node/v20.1.0/bin/node; echo 20 > /tmp/pt/alias/default
 for sh in dash bash zsh; do
   printf '%-6s syntax: ' $sh; $sh -n /src/nvm.sh && echo ok

@@ -1,7 +1,7 @@
-//! nvm-fetch: HTTPS download, checksum, extraction (spec §6.1.1, §13.2).
-//! Protocol with nvm-core:
-//!   nvm-fetch get <url>                              body -> stdout; rc 4 on failure, 5 on 404
-//!   nvm-fetch install <mirror> <vX.Y.Z> <nvm_dir> [--dest=<dir>] [--source] [--offline] [--no-progress]
+//! nvmr-fetch: HTTPS download, checksum, extraction (spec §6.1.1, §13.2).
+//! Protocol with nvmr:
+//!   nvmr-fetch get <url>                              body -> stdout; rc 4 on failure, 5 on 404
+//!   nvmr-fetch install <mirror> <vX.Y.Z> <nvm_dir> [--dest=<dir>] [--source] [--offline] [--no-progress]
 //!                                                    download + verify + extract; with --dest, move into place
 use sha2::{Digest, Sha256};
 use std::fs::{self, File};
@@ -199,7 +199,7 @@ fn sanitize(nvm_dir: &str, p: &Path) -> String {
     o
 }
 
-/// Options for `nvm-fetch install`.
+/// Options for `nvmr-fetch install`.
 struct Install<'a> {
     mirror: &'a str,
     version: &'a str,
@@ -358,7 +358,7 @@ fn main() {
             install(&Install::parse(mirror, version, nvm_dir, flags))
         }
         _ => {
-            eprintln!("usage: nvm-fetch get <url> | install <mirror> <version> <nvm_dir> [--dest=<dir>] [--source] [--offline] [--no-progress]");
+            eprintln!("usage: nvmr-fetch get <url> | install <mirror> <version> <nvm_dir> [--dest=<dir>] [--source] [--offline] [--no-progress]");
             2
         }
     };

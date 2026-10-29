@@ -7,7 +7,7 @@ cmds=("ls-remote 22.1" "ls-remote --lts=iron" "ls-remote 99" "ls-remote --lts" "
 for who in up nat; do
   mk; : > /tmp/rc-$who.txt
   for c in "${cmds[@]}"; do
-    if [ $who = up ]; then init=". /opt/nvm-upstream/nvm.sh --no-use"; else init="NVM_CORE=/src/target/release/nvm-core; . /src/nvm.sh --no-use"; fi
+    if [ $who = up ]; then init=". /opt/nvm-upstream/nvm.sh --no-use"; else init="NVMR_EXE=/src/target/release/nvmr; . /src/nvm.sh --no-use"; fi
     { echo "== $c"; script -qec "bash -c '$init; PATH=$NVM_DIR/versions/node/v22.12.0/bin:\$PATH; nvm $c; echo rc=\$?'" /dev/null | cat -v; } >> /tmp/rc-$who.txt
   done
 done

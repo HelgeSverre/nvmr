@@ -1,4 +1,4 @@
-# nvm-fast
+# nvmr
 
 A native drop-in replacement for nvm (parity target: upstream nvm v0.40.8). The behaviour contract is
 `nvm-compat-spec.md`; §12 lists upstream quirks reproduced on purpose and §15 the known, deliberate differences.
@@ -7,17 +7,17 @@ A native drop-in replacement for nvm (parity target: upstream nvm v0.40.8). The 
 
 - One crate, everything under `src/`. Keep it monolithic: do not add workspace members or split crates unless
   there is a concrete reason that a module cannot solve. The two binaries exist for startup latency only:
-  `nvm-core` (all logic, links libc only) and `src/bin/nvm-fetch.rs` (HTTPS, checksum, extraction).
+  `nvmr` (all logic, links libc only) and `src/bin/nvmr-fetch.rs` (HTTPS, checksum, extraction).
 - `nvm.sh` / `nvm.fish` are thin shell integrations; `install.sh` installs a bundle built by `scripts/bundle.sh`.
 - `scripts/` holds the parity harness; `bench/` holds the benchmark and profiling harness.
 
 ## Running things
 
-- Never run nvm, nvm-fast, node installs or the parity harness on the host. Everything runs in Docker via
-  `scripts/d.sh <cmd>` (dev image `nvmfast-dev`, built from `docker/Dockerfile`, with upstream nvm at
+- Never run nvm, nvmr, node installs or the parity harness on the host. Everything runs in Docker via
+  `scripts/d.sh <cmd>` (dev image `nvmr-dev`, built from `docker/Dockerfile`, with upstream nvm at
   `/opt/nvm-upstream`). The only exception is `bench/host.sh`, which works in an isolated sandbox.
 - Before `cargo build` in the container, `touch src/*.rs src/bin/*.rs`: the bind mount sometimes hides edits from
-  cargo's mtime check. Parallel workers use separate build volumes: `NVMFAST_TARGET_VOL=<name> scripts/d.sh ...`.
+  cargo's mtime check. Parallel workers use separate build volumes: `NVMR_TARGET_VOL=<name> scripts/d.sh ...`.
 - Gate: `scripts/verify.sh` (clean build, rustfmt, clippy `-D warnings`, unit tests, every scenario diffed against
   upstream, colour, bash/zsh/fish, read-only, Ctrl-C, portability) must end `ALL GREEN` before you report a change as
   done. A behaviour change comes with a scenario (`scripts/scenario*.sh`, compared by `scripts/compare.sh`) that
@@ -46,8 +46,8 @@ the harness in `bench/` and cite the results directory it came from. No ad-hoc `
    tool's init `node -v` must print the pinned default). A failing check aborts the run. Add a check to every new
    benchmark.
 4. **Fair comparisons.** Same node versions and the same on-disk state for every tool (the "many" state has 102
-   versions); each tool's documented init line; upstream's README auto-switch recipes for nvm and nvm-fast alike;
-   nvm-fast's own one-process hook is a separate, labelled configuration.
+   versions); each tool's documented init line; upstream's README auto-switch recipes for nvm and nvmr alike;
+   nvmr's own one-process hook is a separate, labelled configuration.
 5. **Statistics.** `hyperfine -N` with warmups; at least 50 runs per ms-scale benchmark (300 for numbers you
    publish), at least 3 rounds in a seeded shuffled order. Report min, p10, the median of the per-round medians,
    MAD and the spread between rounds. Never report means. Sub-millisecond in-shell operations are measured as loops
@@ -62,7 +62,7 @@ the harness in `bench/` and cite the results directory it came from. No ad-hoc `
    counts per operation (`strace -f`, Linux), `perf stat` where the kernel allows it, and peak RSS. For deeper
    work, profile a release build with symbols (`CARGO_PROFILE_RELEASE_DEBUG=true CARGO_PROFILE_RELEASE_STRIP=false`)
    using `perf record` in the container or `samply record` on macOS, and keep the command line and output next to
-   the results. `NVM_TIMINGS=1` makes `nvm-core` print its in-process setup/command/eval-write split to
+   the results. `NVM_TIMINGS=1` makes `nvmr` print its in-process setup/command/eval-write split to
    stderr; use it to locate a regression, not as a published number.
 9. **Budgets.** `nvm-compat-spec.md` §13.2 lists the performance budgets. A change that moves a hot path is
    compared against the previous committed result with the same pins.

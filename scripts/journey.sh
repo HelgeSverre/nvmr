@@ -5,7 +5,7 @@ useradd -m -s /bin/bash u 2>/dev/null
 cat > /tmp/j.sh <<'J'
 set -u
 cd $HOME; touch .bashrc
-NVM_FAST_BUNDLE=/bundle sh /install.sh
+NVMR_BUNDLE=/bundle sh /install.sh
 echo "--- profile"; tail -4 .bashrc
 echo "--- fresh interactive shell: install LTS"
 bash -ic 'nvm --version; nvm install --lts 2>&1 | tail -6; node -v; npm -v; command -v node'

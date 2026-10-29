@@ -1,16 +1,16 @@
 [package]
-name = "nvm-core"
+name = "nvmr"
 version = "0.1.0"
 edition = "2021"
-default-run = "nvm-core"
+default-run = "nvmr"
 
 [[bin]]
-name = "nvm-core"
+name = "nvmr"
 path = "src/main.rs"
 
 [[bin]]
-name = "nvm-fetch"
-path = "src/bin/nvm-fetch.rs"
+name = "nvmr-fetch"
+path = "src/bin/nvmr-fetch.rs"
 
 [dependencies]
 ureq = { version = "3", default-features = false, features = ["rustls", "platform-verifier", "gzip"] }

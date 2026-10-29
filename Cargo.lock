@@ -372,7 +372,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "nvm-core"
+name = "nvmr"
 version = "0.1.0"
 dependencies = [
  "ctrlc",

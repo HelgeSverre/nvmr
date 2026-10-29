@@ -3,7 +3,7 @@
 t() { printf '=== nvm %s\n' "$*"; nvm "$@" 2>&1; echo "rc=$?"; }
 mkn() { for v in "$@"; do d=$NVM_DIR/versions/node/$v; mkdir -p $d/bin $d/share/man/man1 $d/include/node
   printf '#!/bin/sh\necho %s\n' $v > $d/bin/node; chmod +x $d/bin/node; done; }
-SRC=/opt/nvm-upstream/nvm.sh; [ -n "${NVM_CORE-}" ] && { SRC=/src/nvm.sh; cp /src/nvm-exec "$NVM_CORE" "$NVM_DIR/"; }
+SRC=/opt/nvm-upstream/nvm.sh; [ -n "${NVMR_EXE-}" ] && { SRC=/src/nvm.sh; cp /src/nvm-exec "$NVMR_EXE" "$NVM_DIR/"; }
 mkn v20.11.0 v22.12.0
 mkdir -p $NVM_DIR/alias /tmp/p11b/empty && cd /tmp/p11b/empty
 # Subcommands with missing or invalid args show a focused usage error (stderr, rc 127)

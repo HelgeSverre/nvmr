@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
-"""Reproducible benchmark harness: upstream nvm vs nvm-fast vs fnm.
+"""Reproducible benchmark harness: upstream nvm vs nvmr vs fnm.
 
 Runs identically inside the pinned Docker image (bench/docker.sh) and on a host sandbox (bench/host.sh).
 Every input is pinned in bench/pins.env; every run writes raw hyperfine JSON, the environment it ran in,
 and a Markdown report. See AGENTS.md ("Benchmarking and profiling") for the rules.
 
-  bench.py setup  --root R --nvm-src DIR --fast-src DIR --fnm BIN --dist DIR
+  bench.py setup  --root R --nvm-src DIR --nvmr-src DIR --fnm BIN --dist DIR
   bench.py run    --root R --out DIR [--rounds 3] [--quick] [--filter REGEX] [--seed N]
   bench.py report DIR
   bench.py profile --root R --out DIR          (Linux: strace/perf; macOS: linkage and RSS)
@@ -118,7 +118,7 @@ def cmd_setup(a: argparse.Namespace) -> None:
     for many in (False, True):
         sfx = "-many" if many else ""
         nvm_state(f"nvm{sfx}", Path(a.nvm_src), many)
-        nvm_state(f"fast{sfx}", Path(a.fast_src), many)
+        nvm_state(f"nvmr{sfx}", Path(a.nvmr_src), many)
         fnm_state(f"fnm{sfx}", many)
     shutil.rmtree(extracted)
 
@@ -155,7 +155,7 @@ def cmd_setup(a: argparse.Namespace) -> None:
 
 # --------------------------------------------------------------------------------------------- rc files
 
-# The README auto-switch recipes from upstream nvm, used unchanged for nvm and nvm-fast (drop-in).
+# The README auto-switch recipes from upstream nvm, used unchanged for nvm and nvmr (drop-in).
 BASH_CDNVM = r'''
 cdnvm() {
   command cd "$@" || return $?
@@ -196,15 +196,15 @@ load-nvmrc() {
 add-zsh-hook chpwd load-nvmrc
 load-nvmrc
 '''
-# nvm-fast's own hook (what nvm.fish uses): one process per cd, no recipe logic in the shell.
+# nvmr's own hook (what nvm.fish uses): one process per cd, no recipe logic in the shell.
 NATIVE_CD = {
     "bash": 'cd() { builtin cd "$@" && nvm __auto cd >/dev/null; }\n',
     "zsh": 'autoload -U add-zsh-hook\n__nvm_cd() { nvm __auto cd >/dev/null; }\nadd-zsh-hook chpwd __nvm_cd\n',
 }
 
 # config name -> (state dir, init snippet builder)
-CONFIGS = ("bare", "nvm", "nvm-nouse", "nvm-cd", "fast", "fast-nouse", "fast-cd", "fast-autocd", "fnm",
-           "nvm-many", "fast-many", "fnm-many")
+CONFIGS = ("bare", "nvm", "nvm-nouse", "nvm-cd", "nvmr", "nvmr-nouse", "nvmr-cd", "nvmr-autocd", "fnm",
+           "nvm-many", "nvmr-many", "fnm-many")
 
 
 def init_lines(cfg: str, shell: str, root: Path) -> str:
@@ -245,7 +245,7 @@ def write_rcfiles(root: Path, p: dict[str, str]) -> None:
 class Bench:
     id: str
     group: str
-    tool: str  # nvm | fast | fnm | bare
+    tool: str  # nvm | nvmr | fnm | bare
     cmd: list[str]
     ops: int = 0  # >0: in-shell loop doing `ops` operations; per-op cost is derived against `baseline`
     baseline: str = ""
@@ -275,9 +275,9 @@ def matrix(root: Path, p: dict[str, str], quick: bool, mirror: str) -> list[Benc
 
     # 1. Shell startup with each tool's documented init (overhead = config - bare).
     for s in shells:
-        for cfg in ("bare", "nvm", "nvm-nouse", "nvm-cd", "fast", "fast-nouse", "fast-cd", "fast-autocd", "fnm"):
+        for cfg in ("bare", "nvm", "nvm-nouse", "nvm-cd", "nvmr", "nvmr-nouse", "nvmr-cd", "nvmr-autocd", "fnm"):
             tool = cfg.split("-")[0]
-            expect = "" if cfg in ("bare", "nvm-nouse", "fast-nouse") else A
+            expect = "" if cfg in ("bare", "nvm-nouse", "nvmr-nouse") else A
             out.append(Bench(
                 id=f"startup/{s}/{cfg}", group="startup", tool=tool,
                 cmd=shell_cmd(s, cfg, root, "exit"),
@@ -292,7 +292,7 @@ def matrix(root: Path, p: dict[str, str], quick: bool, mirror: str) -> list[Benc
     # (otherwise the startup subtraction is noise). Upstream nvm is ~100x slower, so it gets fewer iterations.
     scale = 1 if quick else 2
     iters = {"nvm": {"use": 4, "current": 10, "version": 5},
-             "fast": {"use": 25, "current": 50, "version": 50},
+             "nvmr": {"use": 25, "current": 50, "version": 50},
              "fnm": {"use": 25, "current": 50}}
     for s in shells:
         for tool, it in iters.items():
@@ -324,15 +324,15 @@ def matrix(root: Path, p: dict[str, str], quick: bool, mirror: str) -> list[Benc
                                  ops=n, baseline=base, check=B,
                                  check_cmd=shell_cmd(s, cfg, root, f"nvm version {bmaj}")))
         # startup of the "many" states, as baselines for ls-many
-        for cfg in ("nvm-many", "fast-many", "fnm-many"):
+        for cfg in ("nvm-many", "nvmr-many", "fnm-many"):
             out.append(Bench(f"startup/{s}/{cfg}", "startup-many", cfg.split("-")[0], shell_cmd(s, cfg, root, "exit"),
                              baseline=f"startup/{s}/bare"))
 
     # 3. cd with auto-switch: into a project with .nvmrc and back (2 switches per iteration),
     #    and between directories without a version file (2 no-op hooks per iteration).
     cd_cfgs = {  # label -> (config, iterations for cd-switch, iterations for cd-nochange)
-        "nvm": ("nvm-cd", 2, 10), "fast": ("fast-cd", 10, 20),
-        "fast-native": ("fast-autocd", 25, 25), "fnm": ("fnm", 25, 25)}
+        "nvm": ("nvm-cd", 2, 10), "nvmr": ("nvmr-cd", 10, 20),
+        "nvmr-native": ("nvmr-autocd", 25, 25), "fnm": ("fnm", 25, 25)}
     for s in shells:
         for label, (cfg, n_switch, n_same) in cd_cfgs.items():
             n = n_switch * scale
@@ -350,22 +350,22 @@ def matrix(root: Path, p: dict[str, str], quick: bool, mirror: str) -> list[Benc
                              check=A, check_cmd=shell_cmd(s, cfg, root, f"cd {proj}/plain1; node -v")))
 
     # 4. Bare process latency of the hot binaries (no shell).
-    env_fast = root / "fast"
+    env_nvmr = root / "nvmr"
     out += [
-        Bench("process/nvm-core-current", "process", "fast", [str(env_fast / "nvm-core"), "current"]),
-        Bench("process/nvm-core-auto-use", "process", "fast", [str(env_fast / "nvm-core"), "__auto", "use"]),
-        Bench("process/nvm-core-version", "process", "fast", [str(env_fast / "nvm-core"), "version", bmaj]),
+        Bench("process/nvmr-current", "process", "nvmr", [str(env_nvmr / "nvmr"), "current"]),
+        Bench("process/nvmr-auto-use", "process", "nvmr", [str(env_nvmr / "nvmr"), "__auto", "use"]),
+        Bench("process/nvmr-version", "process", "nvmr", [str(env_nvmr / "nvmr"), "version", bmaj]),
         Bench("process/fnm-env", "process", "fnm", [str(root / "bin/fnm"), "env", "--shell", "bash"]),
         # `fnm current` needs the per-shell env from `fnm env`; `fnm ls` is the comparable read-only command
         Bench("process/fnm-ls", "process", "fnm", [str(root / "bin/fnm"), "ls"]),
-        Bench("process/nvm-core-ls", "process", "fast", [str(env_fast / "nvm-core"), "ls"]),
+        Bench("process/nvmr-ls", "process", "nvmr", [str(env_nvmr / "nvmr"), "ls"]),
         Bench("process/true", "process", "bare", ["true"]),
     ]
 
     # 5. Install from a loopback mirror (download + verify + extract), clean each run.
     if not quick:
         for s in ("bash",):
-            for tool, cfg in (("nvm", "nvm-nouse"), ("fast", "fast-nouse"), ("fnm", "fnm")):
+            for tool, cfg in (("nvm", "nvm-nouse"), ("nvmr", "nvmr-nouse"), ("fnm", "fnm")):
                 state = root / ("fnm" if tool == "fnm" else tool)
                 if tool == "fnm":
                     script = f"FNM_NODE_DIST_MIRROR={mirror} fnm install {B} >/dev/null 2>&1"
@@ -428,7 +428,7 @@ def environment(root: Path, a: argparse.Namespace) -> dict:
             "bash": capture([SHELLS["bash"], "--version"]).splitlines()[0],
             "zsh": capture([SHELLS["zsh"], "--version"]),
             "fnm": capture([str(root / "bin/fnm"), "--version"]),
-            "nvm-fast": capture([str(root / "fast/nvm-core"), "--version"]),
+            "nvmr": capture([str(root / "nvmr/nvmr"), "--version"]),
             "python": platform.python_version(),
         },
     }
@@ -480,7 +480,7 @@ def run_env(root: Path) -> dict:
         "LANG": "C", "LC_ALL": "C", "TERM": "dumb", "NVM_NO_COLORS": "--no-colors", "NVM_NO_PROGRESS": "1",
         "TMPDIR": str(root / "home"), "SHELL": "/bin/sh",
         # process benchmarks read these directly
-        "NVM_DIR": str(root / "fast"), "FNM_DIR": str(root / "fnm"),
+        "NVM_DIR": str(root / "nvmr"), "FNM_DIR": str(root / "fnm"),
     }
 
 
@@ -607,7 +607,7 @@ def report(out: Path) -> None:
          f"- {meta['cpu']}, {meta['ncpu']} CPUs, {meta['platform']}",
          f"- cgroup: {meta['cgroup'] or 'none'}",
          f"- {meta['versions']['hyperfine']}; bash `{meta['versions']['bash']}`; `{meta['versions']['zsh']}`; "
-         f"fnm `{meta['versions']['fnm']}`; nvm {meta['pins']['NVM_VERSION']}; nvm-fast `{meta['versions']['nvm-fast']}`",
+         f"fnm `{meta['versions']['fnm']}`; nvm {meta['pins']['NVM_VERSION']}; nvmr `{meta['versions']['nvmr']}`",
          f"- load average before/after: {meta['load_before']} / {meta['load_after']}"
          + ("  **NOISY: load exceeded ncpu/4; trust min and p10, not medians**" if noisy(meta) else ""), "",
          "Per-operation numbers are loop totals minus the same shell's startup, divided by the operation count; "
@@ -638,7 +638,7 @@ def report(out: Path) -> None:
 
     by = lambda g: [i for i, b in benches.items() if b["group"] == g]
     table("Shell startup overhead (config minus bare shell)", by("startup"), True,
-          "`nvm-cd`/`fast-cd` add upstream's README auto-switch recipe; `fast-autocd` uses nvm-fast's one-process "
+          "`nvm-cd`/`nvmr-cd` add upstream's README auto-switch recipe; `nvmr-autocd` uses nvmr's one-process "
           "hook; `fnm` is `fnm env --use-on-cd`.")
     for g, title in (("use", "`use` (switch between two installed versions)"), ("current", "`current`"),
                      ("version", "`version <major>` (resolution)"), ("ls-many", "`ls` with 102 versions installed"),
@@ -662,8 +662,8 @@ def cmd_profile(a: argparse.Namespace) -> None:
     p = pins()
     bmaj = p["NODE_B"].lstrip("v").split(".")[0]
     L = ["# Profile", ""]
-    core = root / "fast/nvm-core"
-    L += ["## Binaries", "", "```", capture(["ls", "-l", str(core), str(root / "fast/nvm-fetch"), str(root / "bin/fnm")])]
+    core = root / "nvmr/nvmr"
+    L += ["## Binaries", "", "```", capture(["ls", "-l", str(core), str(root / "nvmr/nvmr-fetch"), str(root / "bin/fnm")])]
     if platform.system() == "Darwin":
         L += [capture(["otool", "-L", str(core)]), capture(["otool", "-L", str(root / "bin/fnm")])]
     else:
@@ -674,9 +674,9 @@ def cmd_profile(a: argparse.Namespace) -> None:
         "nvm: source + use": shell_cmd("bash", "nvm-nouse", root, f"nvm use {bmaj} >/dev/null"),
         "nvm: source + ls (102 versions)": shell_cmd("bash", "nvm-many", root, "nvm ls >/dev/null"),
         "nvm: startup with auto-use": shell_cmd("bash", "nvm", root, "exit"),
-        "fast: source + use": shell_cmd("bash", "fast-nouse", root, f"nvm use {bmaj} >/dev/null"),
-        "fast: source + ls (102 versions)": shell_cmd("bash", "fast-many", root, "nvm ls >/dev/null"),
-        "fast: startup with auto-use": shell_cmd("bash", "fast", root, "exit"),
+        "nvmr: source + use": shell_cmd("bash", "nvmr-nouse", root, f"nvm use {bmaj} >/dev/null"),
+        "nvmr: source + ls (102 versions)": shell_cmd("bash", "nvmr-many", root, "nvm ls >/dev/null"),
+        "nvmr: startup with auto-use": shell_cmd("bash", "nvmr", root, "exit"),
         "fnm: startup (env --use-on-cd)": shell_cmd("bash", "fnm", root, "exit"),
         "fnm: startup + use": shell_cmd("bash", "fnm", root, f"fnm use {bmaj} >/dev/null"),
         "bare bash": shell_cmd("bash", "bare", root, "exit"),
@@ -704,18 +704,18 @@ def cmd_profile(a: argparse.Namespace) -> None:
         L += ["Programs executed by upstream `nvm use`: " +
               ", ".join(f"{k} {v}" for k, v in sorted(progs.items(), key=lambda x: -x[1])), ""]
         c = subprocess.run(["strace", "-c", "-f", str(core), "__auto", "use"], env=env, capture_output=True, text=True)
-        L += ["## `nvm-core __auto use` syscall summary", "", "```", c.stderr.strip()[-3000:], "```", ""]
+        L += ["## `nvmr __auto use` syscall summary", "", "```", c.stderr.strip()[-3000:], "```", ""]
     if platform.system() == "Linux" and shutil.which("perf"):
         r = subprocess.run(["perf", "stat", "-r", "50", "-e", "task-clock,context-switches,page-faults",
                             str(core), "current"], env=env, capture_output=True, text=True)
-        L += ["## perf stat (`nvm-core current`, 50 runs)", "", "```", (r.stderr or "perf unavailable").strip(), "```", ""]
+        L += ["## perf stat (`nvmr current`, 50 runs)", "", "```", (r.stderr or "perf unavailable").strip(), "```", ""]
     # Peak RSS
     tbin = "/usr/bin/time"
     if Path(tbin).exists():
         flag = "-l" if platform.system() == "Darwin" else "-v"
         L += ["## Peak RSS", "", "| command | max RSS |", "|---|---:|"]
-        for name, cmd in (("nvm-core current", [str(core), "current"]),
-                          ("nvm-core ls (102)", [str(root / "fast-many/nvm-core"), "ls"]),
+        for name, cmd in (("nvmr current", [str(core), "current"]),
+                          ("nvmr ls (102)", [str(root / "nvmr-many/nvmr"), "ls"]),
                           ("fnm ls", [str(root / "bin/fnm"), "ls"]),
                           ("fnm ls (102)", [str(root / "bin/fnm"), "ls", "--fnm-dir", str(root / "fnm-many")])):
             r = subprocess.run([tbin, flag, *cmd], env={**env, "NVM_DIR": str(Path(cmd[0]).parent)},
@@ -738,7 +738,7 @@ def main() -> None:
     s = sub.add_parser("setup")
     s.add_argument("--root", required=True)
     s.add_argument("--nvm-src", required=True)
-    s.add_argument("--fast-src", required=True)
+    s.add_argument("--nvmr-src", required=True)
     s.add_argument("--fnm", required=True)
     s.add_argument("--dist", required=True)
     r = sub.add_parser("run")

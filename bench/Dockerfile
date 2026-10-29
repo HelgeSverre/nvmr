@@ -1,5 +1,5 @@
 # Benchmark image: every tool and input pinned (bench/pins.env), no network at run time.
-# Built by bench/docker.sh, which first puts the nvm-fast release bundle in bench/.build/nvm-fast.
+# Built by bench/docker.sh, which first puts the nvmr release bundle in bench/.build/nvmr.
 # Keep the pin values in sync with pins.env (docker.sh passes them as build args from that file).
 ARG DEBIAN_IMAGE
 FROM ${DEBIAN_IMAGE} AS fetch
@@ -38,7 +38,7 @@ COPY --from=fetch /fetch/hyperfine /usr/local/bin/hyperfine
 COPY --from=fetch /fetch/fnm /opt/bench/fnm
 COPY --from=fetch /fetch/dist /opt/bench/dist
 COPY --from=fetch /fetch/nvm /opt/bench/nvm
-COPY .build/nvm-fast /opt/bench/nvm-fast
+COPY .build/nvmr /opt/bench/nvmr
 COPY pins.env bench.py /opt/bench/
 ENV BENCH_WHERE=docker LANG=C LC_ALL=C
 WORKDIR /opt/bench

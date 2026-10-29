@@ -62,7 +62,7 @@ for variant in bash zsh zsh-opts; do
   sh=${variant%-opts}; pre=; [ "$variant" = zsh-opts ] && pre=$zsh_opts
   for who in up nat; do
     mkfake
-    if [ $who = up ]; then init=". /opt/nvm-upstream/nvm.sh"; else init="NVM_CORE=/src/target/release/nvm-core; . /src/nvm.sh"; fi
+    if [ $who = up ]; then init=". /opt/nvm-upstream/nvm.sh"; else init="NVMR_EXE=/src/target/release/nvmr; . /src/nvm.sh"; fi
     recipe=$bash_recipe; [ $sh = zsh ] && recipe=$zsh_recipe
     env -i HOME=/root TERM=dumb PATH=/usr/local/bin:/usr/bin:/bin NVM_DIR=/tmp/sh $sh -c "$pre $init; $body_common $recipe $tail_common" > /tmp/sh-$variant-$who.txt 2>&1
   done

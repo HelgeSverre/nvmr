@@ -1,4 +1,4 @@
-# nvm (native): thin shell integration around nvm-core. Source from your shell profile exactly like upstream nvm.sh.
+# nvm (native): thin shell integration around nvmr. Source from your shell profile exactly like upstream nvm.sh.
 # Supports: --no-use, --install, NVM_LAZY=1 (stub node/npm/npx/... until first use), NVM_LAZY_PATH=1.
 # Works in bash, zsh and any POSIX sh that provides `local`-free function bodies (names are prefixed instead).
 if [ -z "${NVM_DIR-}" ]; then
@@ -20,7 +20,7 @@ fi
 if [ -z "${NVM_CD_FLAGS-}" ]; then export NVM_CD_FLAGS=''; fi
 if [ -n "${ZSH_VERSION-}" ]; then NVM_CD_FLAGS="-q"; fi
 
-# --- the nvm function: run nvm-core, then source whatever shell statements it queued (spec §1.1) ---
+# --- the nvm function: run nvmr, then source whatever shell statements it queued (spec §1.1) ---
 # Fast path needs a writable cache dir for the per-shell eval file; read-only installs fall back to mktemp.
 __nvm_fast=
 if [ -d "$NVM_DIR/.cache" ]; then
@@ -33,7 +33,7 @@ nvm() {
   if [ "$#" -lt 1 ]; then set -- --help; fi
   if [ -n "${__NVM_LAZY_PENDING-}" ]; then __nvm_lazy_load; fi
   if [ -n "$__nvm_fast" ]; then
-    # One spawn per call: nvm-core queues shell statements in a per-shell file (truncated by the shell, no mktemp/rm).
+    # One spawn per call: nvmr queues shell statements in a per-shell file (truncated by the shell, no mktemp/rm).
     __nvm_ef="$NVM_DIR/.cache/eval.$$"
   else
     if ! __nvm_ef="$(command mktemp "${TMPDIR:-/tmp}/nvm-eval.XXXXXX" 2>/dev/null)"; then
@@ -45,7 +45,7 @@ nvm() {
     fi
   fi
   NVM_EVAL_FILE="$__nvm_ef" NVM_SHELL="${NVM_SHELL:-$([ -n "${ZSH_VERSION-}" ] && echo zsh || echo bash)}" \
-    command "${NVM_CORE:-$NVM_DIR/nvm-core}" "$@"
+    command "${NVMR_EXE:-$NVM_DIR/nvmr}" "$@"
   __nvm_rc=$?
   if [ -s "$__nvm_ef" ]; then . "$__nvm_ef"; : >"$__nvm_ef"; fi
   if [ -z "$__nvm_fast" ]; then command rm -f "$__nvm_ef"; fi
@@ -67,11 +67,11 @@ nvm_find_nvmrc() {
   if [ -e "${__nvm_d}/.nvmrc" ]; then nvm_echo "${__nvm_d}/.nvmrc"; fi
   unset __nvm_d
 }
-nvm_ls_current() { command "${NVM_CORE:-$NVM_DIR/nvm-core}" current; }
-nvm_version() { command "${NVM_CORE:-$NVM_DIR/nvm-core}" version "$@"; }
-nvm_ls() { command "${NVM_CORE:-$NVM_DIR/nvm-core}" __ls "$@"; }
+nvm_ls_current() { command "${NVMR_EXE:-$NVM_DIR/nvmr}" current; }
+nvm_version() { command "${NVMR_EXE:-$NVM_DIR/nvmr}" version "$@"; }
+nvm_ls() { command "${NVMR_EXE:-$NVM_DIR/nvmr}" __ls "$@"; }
 nvm_rc_version() {
-  __nvm_o="$(command "${NVM_CORE:-$NVM_DIR/nvm-core}" __rcversion)"; __nvm_r=$?
+  __nvm_o="$(command "${NVMR_EXE:-$NVM_DIR/nvmr}" __rcversion)"; __nvm_r=$?
   if [ $__nvm_r -ne 0 ]; then
     if [ $__nvm_r -eq 1 ]; then nvm_err 'No .nvmrc file found'; else nvm_err 'invalid .nvmrc!'; fi
     unset __nvm_o __nvm_r; return 1

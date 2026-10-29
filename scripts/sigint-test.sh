@@ -32,7 +32,7 @@ PY
 up() { for _ in $(seq 50); do curl -sf -o /dev/null http://127.0.0.1:8098/dist/index.tab && return; sleep 0.2; done; }
 (cd /srv2 && exec python3 /tmp/slow.py >/dev/null 2>&1 &) ; up
 export NVM_DIR=/tmp/si NVM_NODEJS_ORG_MIRROR=http://127.0.0.1:8098/dist NVM_NO_PROGRESS=1
-F=/src/target/release/nvm-fetch
+F=/src/target/release/nvmr-fetch
 # 1) interrupt mid-download
 $F install $NVM_NODEJS_ORG_MIRROR $V $NVM_DIR --dest=$NVM_DIR/versions/node/$V --no-progress >/tmp/si.out 2>&1 &
 PID=$!; sleep 3; kill -INT $PID; wait $PID; echo "download interrupted rc=$?"
@@ -51,7 +51,7 @@ echo "files dir present after interrupt: $([ -d $NVM_DIR/.cache/bin/$SLUG/files 
 ls $NVM_DIR/.cache/bin/$SLUG | tr '\n' ' '; echo
 # 4) Ctrl-C on the whole foreground group during `nvm install`: rc 130, the install lock is released
 rm -rf $NVM_DIR/versions $NVM_DIR/.cache; pkill -f slow.py; (cd /srv2 && exec python3 /tmp/slow.py >/dev/null 2>&1 &); sleep 0.5; up
-setsid bash -c 'NVM_CORE=/src/target/release/nvm-core; . /src/nvm.sh --no-use; nvm install --no-progress v22.50.0 >/dev/null 2>&1; echo "nvm install rc=$?" > /tmp/si.rc' &
+setsid bash -c 'NVMR_EXE=/src/target/release/nvmr; . /src/nvm.sh --no-use; nvm install --no-progress v22.50.0 >/dev/null 2>&1; echo "nvm install rc=$?" > /tmp/si.rc' &
 sleep 3; kill -INT -- -$!; sleep 1
 cat /tmp/si.rc; echo "lock left behind: $(ls $NVM_DIR/.cache/locks 2>/dev/null | tr '\n' ' ')"
 pkill -f slow.py  # a live server would hold the caller's output pipe open

@@ -14,16 +14,16 @@ Non-goals (explicitly dropped): Windows/MSYS/Cygwin, SunOS, AIX, OpenBSD, FreeBS
 
 ```
 ┌─────────────────────────────┐      ┌────────────────────────────────┐
-│ nvm()  shell function       │ exec │ nvm-core  (native binary)      │
+│ nvm()  shell function       │ exec │ nvmr  (native binary)           │
 │  ~20 lines, per shell       │─────▶│  all logic, all I/O            │
 │  sourced at startup         │      │  writes shell mutations to an  │
-│  evals what nvm-core emits  │◀─────│  "eval channel", not stdout    │
+│  evals what nvmr emits       │◀─────│  "eval channel", not stdout    │
 └─────────────────────────────┘      └────────────────────────────────┘
 ```
 
-- **`nvm-core`** (name is internal; install as `$NVM_DIR/nvm-core` or `/usr/local/bin/nvm-core`) does everything: resolution, download, extraction, printing. Stdout/stderr carry exactly what upstream prints.
-- **`nvm-fetch`**: a second binary holding the HTTPS/TLS/extraction code, spawned by `nvm-core` for `install`, `ls-remote` and `version-remote`, so that `nvm-core` never links `Security.framework`/`CoreFoundation` and starts in < 2 ms (§13.2).
-- **Eval channel**: the function passes `NVM_EVAL_FILE=$NVM_DIR/.cache/eval.$$` (one file per shell process). `nvm-core` writes shell statements there in the dialect named by `NVM_SHELL` (`sh`, `bash`, `zsh`, `fish`) and creates the directory if needed. After the binary exits, the function sources the file and truncates it with the `:` builtin. No `mktemp` or `rm` is spawned, so every `nvm` call costs exactly one process. `nvm-core` truncates stale content when it has nothing to write and prunes `eval.*` files older than a day. The file is never written when nothing changed. (Alternative: fd 3 — upstream already uses `3>&1` for `nvm_rc_version`; fd 3 is fine for POSIX shells but fish can't `exec 3>` cleanly, so the file protocol is the one true protocol.)
+- **`nvmr`** (users keep typing `nvm`; installed as `$NVM_DIR/nvmr` or `/usr/local/bin/nvmr`) does everything: resolution, download, extraction, printing. Stdout/stderr carry exactly what upstream prints.
+- **`nvmr-fetch`**: a second binary holding the HTTPS/TLS/extraction code, spawned by `nvmr` for `install`, `ls-remote` and `version-remote`, so that `nvmr` never links `Security.framework`/`CoreFoundation` and starts in < 2 ms (§13.2).
+- **Eval channel**: the function passes `NVM_EVAL_FILE=$NVM_DIR/.cache/eval.$$` (one file per shell process). `nvmr` writes shell statements there in the dialect named by `NVM_SHELL` (`sh`, `bash`, `zsh`, `fish`) and creates the directory if needed. After the binary exits, the function sources the file and truncates it with the `:` builtin. No `mktemp` or `rm` is spawned, so every `nvm` call costs exactly one process. `nvmr` truncates stale content when it has nothing to write and prunes `eval.*` files older than a day. The file is never written when nothing changed. (Alternative: fd 3 — upstream already uses `3>&1` for `nvm_rc_version`; fd 3 is fine for POSIX shells but fish can't `exec 3>` cleanly, so the file protocol is the one true protocol.)
 - Emitted statements are limited to a small grammar: `export VAR=value`, `unset VAR`, `hash -r` (POSIX) / `rehash` (zsh) / `set -gx VAR value` + `set -e VAR` (fish). Values are single-quoted with `'\''` escaping; never interpolate unescaped.
 
 ### 1.2 The shell function (reference, POSIX sh/bash/zsh)
@@ -34,7 +34,7 @@ nvm() {
   local __nvm_eval __nvm_rc
   __nvm_eval="$(command mktemp "${TMPDIR:-/tmp}/nvm-eval.XXXXXX")" || return 1
   NVM_EVAL_FILE="$__nvm_eval" NVM_SHELL="${NVM_SHELL:-$( [ -n "${ZSH_VERSION-}" ] && echo zsh || echo bash )}" \
-    command "${NVM_DIR}/nvm-core" "$@"
+    command "${NVM_DIR}/nvmr" "$@"
   __nvm_rc=$?
   if [ -s "$__nvm_eval" ]; then . "$__nvm_eval"; fi
   command rm -f "$__nvm_eval"
@@ -42,16 +42,16 @@ nvm() {
 }
 ```
 
-Why not `eval "$(nvm-core "$@")"`: stdout must stay the user's (progress bars, `nvm ls` output, `nvm which` paths piped into scripts). Why `local`: zsh/bash both have it; for pure POSIX `sh` drop `local` and prefix the names.
+Why not `eval "$(nvmr "$@")"`: stdout must stay the user's (progress bars, `nvm ls` output, `nvm which` paths piped into scripts). Why `local`: zsh/bash both have it; for pure POSIX `sh` drop `local` and prefix the names.
 
 ### 1.3 `nvm-exec` (unchanged contract)
 
-`$NVM_DIR/nvm-exec` is an executable that: sets `NODE_VERSION` env → `nvm use $NODE_VERSION` (exit 127 on failure); else `.nvmrc` → `nvm use`; else prints `nvm-exec: unable to select a node version` + hint and exits 127; then `exec "$@"`. In the native version `nvm-exec` is `nvm-core exec-internal "$@"`: compute the environment and `execvp` directly — no shell involved.
+`$NVM_DIR/nvm-exec` is an executable that: sets `NODE_VERSION` env → `nvm use $NODE_VERSION` (exit 127 on failure); else `.nvmrc` → `nvm use`; else prints `nvm-exec: unable to select a node version` + hint and exits 127; then `exec "$@"`. In the native version `nvm-exec` is `nvmr exec-internal "$@"`: compute the environment and `execvp` directly — no shell involved.
 
 ### 1.4 Startup cost budget
 
 - Sourcing the function: < 1 ms (it's ~20 lines, no subprocesses).
-- Auto-use at startup (`nvm_process_parameters`, §9): one `nvm-core __auto use` invocation ≤ 2.5 ms (stat `alias/default`, stat one `bin/node`, emit PATH edit). This replaces upstream's 300–600 ms (measured, §13.1). Budgets are normative in §13.2.
+- Auto-use at startup (`nvm_process_parameters`, §9): one `nvmr __auto use` invocation ≤ 2.5 ms (stat `alias/default`, stat one `bin/node`, emit PATH edit). This replaces upstream's 300–600 ms (measured, §13.1). Budgets are normative in §13.2.
 - Lazy mode (§9.3) defers even that until first use of `nvm`/`node`/`npm`/`npx`/`corepack`.
 
 ---
@@ -75,7 +75,7 @@ Must be byte-compatible; the shell nvm and the native nvm may share it.
 | `.cache/locks/<version>` | Install lock **directory** (atomic `mkdir`). |
 | `default-packages` | One npm package spec per line, `#` comments, blank lines ignored. A line with whitespace inside is an error. |
 | `current` | Symlink to the active version dir, only when `NVM_SYMLINK_CURRENT=true`. |
-| `nvm-core`, `nvm-fetch` | Native binaries (§1.1, §13.2); may also live in `/usr/local/bin` or a Homebrew `libexec/`, located via `NVM_CORE`/`NVM_FETCH`. |
+| `nvmr`, `nvmr-fetch` | Native binaries (§1.1, §13.2); may also live in `/usr/local/bin` or a Homebrew `libexec/`, located via `NVMR_EXE`/`NVMR_FETCH`. |
 | `nvm.sh`, `nvm-exec`, `bash_completion` | Upstream files; native install ships `nvm.sh` as the tiny function file so existing `[ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"` profile lines keep working unchanged. |
 
 `$NVM_DIR` rules: if set with a trailing slash → strip it and print `Warning: $NVM_DIR should not have trailing slashes` to stderr. If unset → the directory containing the sourced `nvm.sh`. The native binary exports it if it had to derive it.
@@ -368,7 +368,7 @@ Exactly one arg. Same as current → `Can not reinstall packages from the curren
 
 ### 6.17 `set-colors <5 chars>` — chars from `rRgGbBcCyYmMkKeW`; wrong → help to stderr + `Please pass in five valid color codes. Choose from: rRgGbBcCyYmMkKeW` (coloured), rc 17 internally (command rc 0 after printing). Success: `export NVM_COLORS=<codes>` on the eval channel; stdout `Setting colors to: a b c d e` (+ `WARNING: Colors may not display because they are not supported in this shell.` when stdout is not a colour terminal).
 
-### 6.18 `debug` — dumps `nvm --version`, `$TERM_PROGRAM`, `$SHELL`, `$SHLVL`, `whoami`, `$HOME`, `$NVM_DIR`, `$PATH`, `$PREFIX`, `$NPM_CONFIG_PREFIX`, mirrors, shell version, `uname -a` (hostname blanked), checksum binary, OS version (`sw_vers` on mac), tool locations/versions (awk, curl, wget, git, grep, sed, cut, basename, rm, mkdir, xargs), then `nvm current`, `which node/iojs/npm`, `npm config get prefix`, `npm root -g` — all to **stderr**, rc **42**. Native: same keys, plus a `nvm-core:` line with the binary's own build info.
+### 6.18 `debug` — dumps `nvm --version`, `$TERM_PROGRAM`, `$SHELL`, `$SHLVL`, `whoami`, `$HOME`, `$NVM_DIR`, `$PATH`, `$PREFIX`, `$NPM_CONFIG_PREFIX`, mirrors, shell version, `uname -a` (hostname blanked), checksum binary, OS version (`sw_vers` on mac), tool locations/versions (awk, curl, wget, git, grep, sed, cut, basename, rm, mkdir, xargs), then `nvm current`, `which node/iojs/npm`, `npm config get prefix`, `npm root -g` — all to **stderr**, rc **42**. Native: same keys, plus a `nvmr:` line with the binary's own build info.
 
 ### 6.19 `--version` / `-v` → `0.40.8` (match whatever upstream version the native build claims compatibility with; expose the native build via `nvm debug` only, so scripts that parse `nvm --version` are unaffected).
 
@@ -436,7 +436,7 @@ Sourcing `nvm.sh` accepts `--no-use` and `--install`:
 - `--install`: same but `nvm install <default>` / `nvm install` (quiet).
 - `--no-use`: nothing.
 
-The native `nvm.sh` keeps that interface and implements it as `nvm-core __auto use|install` through the eval channel. Two distinct semantics exist and are separate sub-commands: `__auto use` is the source-time algorithm above (default alias, else `.nvmrc`, else re-assert the current nvm version); `__auto cd` is the directory-change hook (`.nvmrc` found up the tree, else `default`; no-op when already active). The zsh/bash/fish hooks in §9.4 call `__auto cd`.
+The native `nvm.sh` keeps that interface and implements it as `nvmr __auto use|install` through the eval channel. Two distinct semantics exist and are separate sub-commands: `__auto use` is the source-time algorithm above (default alias, else `.nvmrc`, else re-assert the current nvm version); `__auto cd` is the directory-change hook (`.nvmrc` found up the tree, else `default`; no-op when already active). The zsh/bash/fish hooks in §9.4 call `__auto cd`.
 
 ### 9.2 Installing
 
@@ -446,14 +446,14 @@ export NVM_DIR="$HOME/.nvm"
 [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"  # This loads nvm
 [ -s "$NVM_DIR/bash_completion" ] && \. "$NVM_DIR/bash_completion"  # This loads nvm bash_completion
 ```
-Because the native `nvm.sh` is the thin function, existing installs upgrade by replacing `nvm.sh`, `nvm-exec`, and dropping in `nvm-core` — profiles do not change. Homebrew formula: install `nvm-core` to the Cellar, `nvm.sh` to `$(brew --prefix)/opt/nvm/nvm.sh`, print the same source line.
+Because the native `nvm.sh` is the thin function, existing installs upgrade by replacing `nvm.sh`, `nvm-exec`, and dropping in `nvmr` — profiles do not change. Homebrew formula: install `nvmr` to the Cellar, `nvm.sh` to `$(brew --prefix)/opt/nvm/nvm.sh`, print the same source line.
 
 ### 9.3 Lazy mode
 
 Opt-in with `NVM_LAZY=1` set **before** sourcing `nvm.sh` (or `. "$NVM_DIR/nvm.sh" --lazy`). Behaviour:
 
 1. `nvm.sh` defines `nvm` and stub functions `node npm npx corepack yarn pnpm` (list overridable via `NVM_LAZY_CMDS`). Nothing else runs — no `__auto`.
-2. The first call of any stub runs `nvm-core __auto use` (resolving `default` / `.nvmrc`), evals the result, **undefines all stubs**, then re-invokes the original command (`command node "$@"`). Cost is paid once, on first use, and only in shells that actually use node.
+2. The first call of any stub runs `nvmr __auto use` (resolving `default` / `.nvmrc`), evals the result, **undefines all stubs**, then re-invokes the original command (`command node "$@"`). Cost is paid once, on first use, and only in shells that actually use node.
 3. `nvm` itself, when called before the stubs fired, also triggers the auto-use first so `nvm current` reports what a non-lazy shell would.
 4. Caveat printed in docs: in lazy mode `which node` returns the function until first use; tools that probe `node` by `command -v` without executing it won't trigger activation. `NVM_LAZY_PATH=1` (optional refinement) instead prepends `$NVM_DIR/alias/default`-resolved `bin` dir to `PATH` by **reading the alias file in shell** without executing anything — a ~0.3 ms `read` — and skips the stubs entirely. This is the recommended default for mac: it is both lazy and `which`-correct.
 
@@ -464,7 +464,7 @@ Opt-in with `NVM_LAZY=1` set **before** sourcing `nvm.sh` (or `. "$NVM_DIR/nvm.s
 export NVM_DIR="$HOME/.nvm"
 export NVM_LAZY=1                      # optional
 [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
-# completion (native): compdef is generated by nvm-core
+# completion (native): compdef is generated by nvmr
 [ -s "$NVM_DIR/bash_completion" ] && \. "$NVM_DIR/bash_completion"   # upstream bash-style completion still works via bashcompinit
 ```
 Auto-switch on `cd` (upstream recipe, ported to one binary call):
@@ -482,14 +482,14 @@ export NVM_DIR="$HOME/.nvm"
 [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
 [ -s "$NVM_DIR/bash_completion" ] && \. "$NVM_DIR/bash_completion"
 ```
-Auto-switch: wrap `cd` as upstream's `cdnvm` does, but call `nvm __auto cd` after `builtin cd`. The upstream `cdnvm` function (README "Calling nvm use automatically") must keep working unmodified: it uses `nvm_find_up`, `nvm version`, `nvm use`, `nvm install` — so **`nvm_find_up` must remain a shell function** (trivial: the native `nvm.sh` defines `nvm_find_up`, `nvm_find_nvmrc`, `nvm_rc_version`, `nvm_ls_current`, `nvm_version` as one-line wrappers around `nvm-core __fn <name> "$@"`).
+Auto-switch: wrap `cd` as upstream's `cdnvm` does, but call `nvm __auto cd` after `builtin cd`. The upstream `cdnvm` function (README "Calling nvm use automatically") must keep working unmodified: it uses `nvm_find_up`, `nvm version`, `nvm use`, `nvm install` — so **`nvm_find_up` must remain a shell function** (trivial: the native `nvm.sh` defines `nvm_find_up`, `nvm_find_nvmrc`, `nvm_rc_version`, `nvm_ls_current`, `nvm_version` as one-line wrappers around `nvmr __fn <name> "$@"`).
 
 **fish** — upstream has no fish support; the native version does. `~/.config/fish/conf.d/nvm.fish`:
 ```fish
 set -gx NVM_DIR $HOME/.nvm
 function nvm
     set -l f (mktemp)
-    env NVM_EVAL_FILE=$f NVM_SHELL=fish $NVM_DIR/nvm-core $argv
+    env NVM_EVAL_FILE=$f NVM_SHELL=fish $NVM_DIR/nvmr $argv
     set -l rc $status
     test -s $f; and source $f
     rm -f $f
@@ -502,7 +502,7 @@ Auto-switch: `function __nvm_cd --on-variable PWD; nvm __auto cd; end`. The bina
 **Non-interactive shells / CI**: `BASH_ENV`-style sourcing works unchanged. `nvm-exec` needs no shell at all.
 
 ### 9.5 Completion
-Ship the upstream `bash_completion` verbatim (it calls `nvm_ls` and reads `alias/`, both still available). Additionally `nvm-core __complete {bash,zsh,fish}` generates native completions covering every subcommand and flag in §6 (upstream's covers subcommands only).
+Ship the upstream `bash_completion` verbatim (it calls `nvm_ls` and reads `alias/`, both still available). Additionally `nvmr __complete {bash,zsh,fish}` generates native completions covering every subcommand and flag in §6 (upstream's covers subcommands only).
 
 ---
 
@@ -512,13 +512,13 @@ Exported by nvm: `NVM_DIR`, `NVM_BIN`, `NVM_INC`, `NVM_CD_FLAGS` (zsh: `-q`, els
 
 Read by nvm: `NVM_NODEJS_ORG_MIRROR`, `NVM_IOJS_ORG_MIRROR`, `NVM_AUTH_HEADER`, `NVM_NO_PROGRESS`, `NVM_NO_COLORS` (`--no-colors`), `NVM_COLORS`, `NVM_SYMLINK_CURRENT`, `NVM_NO_SOURCE_FALLBACK`, `NVM_INSTALL_LOCK_TIMEOUT`, `NVM_INSTALL_LOCK_STALE`, `NVM_INSTALL_THIRD_PARTY_HOOK`, `NVM_MAKE_JOBS`, `NVM_DEBUG`, `NVM_SILENT` (internal), `NVM_LTS` (internal), `NVM_VERSION_ONLY` (internal), `NVM_OS_RELEASE` / `NVM_OS_KERNEL_OSTYPE` (test hooks), `PREFIX`, `NPM_CONFIG_PREFIX` (any case), `MANPATH`, `NODE_PATH`, `TMPDIR`, `HOME`, `ZDOTDIR`, `PROFILE`, `XDG_CONFIG_HOME` (installer), `NVM_INSTALL_VERSION`, `NVM_INSTALL_GITHUB_REPO`, `NVM_SOURCE`, `METHOD` (installer).
 
-New (native only): `NVM_EVAL_FILE`, `NVM_SHELL`, `NVM_LAZY`, `NVM_LAZY_CMDS`, `NVM_LAZY_PATH`, `NVM_CORE` (override binary path).
+New (native only): `NVM_EVAL_FILE`, `NVM_SHELL`, `NVM_LAZY`, `NVM_LAZY_CMDS`, `NVM_LAZY_PATH`, `NVMR_EXE` (override binary path).
 
 ---
 
 ## 11. Native implementation notes
 
-- **HTTP**: built-in client (`ureq` 3 + rustls + `rustls-platform-verifier`, in the separate `nvm-fetch` binary — §13.2, §14.3). Honour `HTTPS_PROXY`/`https_proxy`/`NO_PROXY` like curl does. Resume with `Range:` when a partial file exists. Keep `curl`/`wget` out of the hot path entirely; the "needs curl or wget" error is dropped.
+- **HTTP**: built-in client (`ureq` 3 + rustls + `rustls-platform-verifier`, in the separate `nvmr-fetch` binary — §13.2, §14.3). Honour `HTTPS_PROXY`/`https_proxy`/`NO_PROXY` like curl does. Resume with `Range:` when a partial file exists. Keep `curl`/`wget` out of the hot path entirely; the "needs curl or wget" error is dropped.
 - **Archive**: `tar.xz` via the `liblzma` crate (static xz 5.8; `xz2` is dormant since 2022); `tar.gz` via `flate2` (`zlib-rs` backend); entries via the `tar` crate. Strip one leading path component; preserve mode bits; do not preserve owner.
 - **Checksum**: sha256, streamed during download so the cache file is validated without a second read.
 - **Version compare**: integers `(major, minor, patch, prerelease: Option<String>)`; prerelease compares as upstream's awk does (`a[i] < b[i]` on non-numeric text is a string compare; a prerelease on the right makes the left "greater" unless equality counts). Golden-test against `nvm_version_greater` with the upstream test suite's cases.
@@ -527,7 +527,7 @@ New (native only): `NVM_EVAL_FILE`, `NVM_SHELL`, `NVM_LAZY`, `NVM_LAZY_CMDS`, `N
 - **Process spawning allowed**: `npm`, `node`/`iojs` (only for `system`, `--latest-npm`, `reinstall-packages`, `print_npm_version`), `man`-path check is a `which manpath` (cacheable), `tput` replaced by terminfo lookup in-process, `sw_vers` only in `debug`. Nothing is spawned on the `nvm use` fast path except possibly `npm --version` for the suffix — cache that per version dir in `.cache/npm-version/<v>` keyed by `lib/node_modules/npm/package.json` mtime, or read `package.json` directly (preferred: zero spawns).
 - **Atomic installs**: extract to `files/`, rename into place; a crash leaves no half-installed version dir.
 - **Signals**: Ctrl-C during download removes the partial `files/` dir but keeps the partial tarball for resume (matches `-C -`).
-- **Testing**: run upstream's `test/fast` and `test/slow` suites (urchin) against the native `nvm.sh` — they exercise the public function names and outputs; add a golden-output harness that runs identical command sequences through `nvm.sh@upstream` and `nvm-core` in a scratch `NVM_DIR` and diffs stdout/stderr/rc/env.
+- **Testing**: run upstream's `test/fast` and `test/slow` suites (urchin) against the native `nvm.sh` — they exercise the public function names and outputs; add a golden-output harness that runs identical command sequences through `nvm.sh@upstream` and `nvmr` in a scratch `NVM_DIR` and diffs stdout/stderr/rc/env.
 
 ---
 
@@ -575,7 +575,7 @@ New (native only): `NVM_EVAL_FILE`, `NVM_SHELL`, `NVM_LAZY`, `NVM_LAZY_CMDS`, `N
 
 ## 13. Performance: baseline, budgets, profiling, competitors
 
-"Fastest and most compatible" is the product goal. Compatibility is §2–§12; this section makes speed measurable and normative. All numbers below were measured on 2026-10-21 on an Apple M2 Max (macOS 15.6, zsh 5.9, hyperfine 1.20 `-N`) with node v22.22.3 installed in every manager under an isolated home. The machine carried a load average of 17–33 from unrelated processes during the shell-level runs, so **min and p10 are the trustworthy columns**; medians are inflated by noise, and absolute nvm numbers are roughly 2× the idle-machine figures published in nvm-sh/nvm#3930 (302.7 ms auto-use / 75.0 ms `--no-use` on an idle M-series). Rankings and ratios are stable across runs. Raw JSON, rc files and scripts: `/private/tmp/claude-501/-Users-helge-code-nvm-fast/7a8d1862-2c41-48ca-82d5-25e20f573b2c/scratchpad/lab/` (session scratchpad; copy into `bench/` when the repo exists).
+"Fastest and most compatible" is the product goal. Compatibility is §2–§12; this section makes speed measurable and normative. All numbers below were measured on 2026-10-21 on an Apple M2 Max (macOS 15.6, zsh 5.9, hyperfine 1.20 `-N`) with node v22.22.3 installed in every manager under an isolated home. The machine carried a load average of 17–33 from unrelated processes during the shell-level runs, so **min and p10 are the trustworthy columns**; medians are inflated by noise, and absolute nvm numbers are roughly 2× the idle-machine figures published in nvm-sh/nvm#3930 (302.7 ms auto-use / 75.0 ms `--no-use` on an idle M-series). Rankings and ratios are stable across runs. Raw JSON, rc files and scripts: `/private/tmp/claude-501/-Users-helge-code-nvn/7a8d1862-2c41-48ca-82d5-25e20f573b2c/scratchpad/lab/` (session scratchpad; copy into `bench/` when the repo exists).
 
 ### 13.1 Where upstream nvm spends its time
 
@@ -612,8 +612,8 @@ Measured on an idle Apple-silicon Mac with hyperfine `-N`, `--warmup 20`, ≥ 30
 
 | Metric | MUST (min) | MUST (median) | Rationale |
 |---|---:|---:|---|
-| `nvm-core __auto use`, nothing to change (shell startup, `chpwd`) | ≤ 2.0 ms | ≤ 3.0 ms | fnm `env` = 2.9 / 3.7 ms; `/bin/true` ≈ 1.1 ms; libSystem-only Rust hot path measured 1.6 / 1.9 ms |
-| `nvm-core __auto use`, version switch | ≤ 2.5 ms | ≤ 4.0 ms | fnm `use --silent-if-unchanged` 3.5 ms |
+| `nvmr __auto use`, nothing to change (shell startup, `chpwd`) | ≤ 2.0 ms | ≤ 3.0 ms | fnm `env` = 2.9 / 3.7 ms; `/bin/true` ≈ 1.1 ms; libSystem-only Rust hot path measured 1.6 / 1.9 ms |
+| `nvmr __auto use`, version switch | ≤ 2.5 ms | ≤ 4.0 ms | fnm `use --silent-if-unchanged` 3.5 ms |
 | `nvm use <installed>` incl. `(npm vX)` suffix | ≤ 3.0 ms | ≤ 4.5 ms | npm version read from `package.json`, never spawned (§11) |
 | `nvm current` / `which` / `version` / `alias <name>` | ≤ 2.0 ms | ≤ 3.0 ms | |
 | `nvm ls`, `nvm alias` (100 installed versions, 20 aliases, colour on) | ≤ 3.0 ms | ≤ 5.0 ms | upstream: seconds |
@@ -624,15 +624,15 @@ Measured on an idle Apple-silicon Mac with hyperfine `-N`, `--warmup 20`, ≥ 30
 | Shell-startup overhead, `NVM_LAZY_PATH=1` | ≤ 0.5 ms | | no process spawned |
 | Per-`node`-invocation overhead | 0 | 0 | PATH edit, never shims (§13.4) |
 | Peak RSS, any hot command | ≤ 4 MB | | |
-| `nvm-core` binary (macOS, stripped) / `nvm-fetch` | ≤ 2 MB / ≤ 4 MB | | fnm 6.4 MB, proto 36.9 MB, mise 135 MB |
-| Dynamic libraries linked by `nvm-core` | `libSystem.B.dylib` only | | see below |
+| `nvmr` binary (macOS, stripped) / `nvmr-fetch` | ≤ 2 MB / ≤ 4 MB | | fnm 6.4 MB, proto 36.9 MB, mise 135 MB |
+| Dynamic libraries linked by `nvmr` | `libSystem.B.dylib` only | | see below |
 | Syscalls on the `__auto use` no-change path | ≤ 80 | | `strace -c` on Linux, `dtruss` on mac |
 
 **Two binaries, one hot path.** Linking `Security.framework` + `CoreFoundation` (what any system-trust-store TLS verifier pulls in: `rustls-platform-verifier`, `native-tls`, Swift `URLSession`) costs ≈ 1.0 ms of dyld work on every launch even when no network code runs — measured: Rust hot path 1.64 ms with libSystem only vs 2.59 ms with the full HTTPS stack linked; fnm pays this (2.9 ms). Therefore:
 
-- `nvm-core` — every command in §6 except the network parts; links libSystem only. CI asserts `otool -L nvm-core` lists exactly `/usr/lib/libSystem.B.dylib` (Linux: static-PIE, `ldd` says "not a dynamic executable").
-- `nvm-fetch` — HTTPS download with resume, sha256 streaming, `index.tab` fetch, tar.xz/tar.gz extraction into `files/` (§6.1.1). Spawned by `nvm-core` for `install`, `ls-remote`, `version-remote`, and `__auto`'s `--install` mode. Its ≈ 2 ms startup is irrelevant next to network time.
-- Both ship in the same directory (`$NVM_DIR/`, or Homebrew `libexec/`); `nvm-core` locates `nvm-fetch` next to its own `argv[0]`/`proc/self/exe`, overridable with `NVM_FETCH`.
+- `nvmr` — every command in §6 except the network parts; links libSystem only. CI asserts `otool -L nvmr` lists exactly `/usr/lib/libSystem.B.dylib` (Linux: static-PIE, `ldd` says "not a dynamic executable").
+- `nvmr-fetch` — HTTPS download with resume, sha256 streaming, `index.tab` fetch, tar.xz/tar.gz extraction into `files/` (§6.1.1). Spawned by `nvmr` for `install`, `ls-remote`, `version-remote`, and `__auto`'s `--install` mode. Its ≈ 2 ms startup is irrelevant next to network time.
+- Both ship in the same directory (`$NVM_DIR/`, or Homebrew `libexec/`); `nvmr` locates `nvmr-fetch` next to its own `argv[0]`/`proc/self/exe`, overridable with `NVMR_FETCH`.
 
 **Hot-path rules** (MUST): no allocation-heavy argument parser work before dispatch (parse `argv` by hand for the `__auto`/`use`/`current` fast paths); no `readdir` of `versions/node` when the request is an exact installed version or an alias that resolves to one (stat only); no terminfo lookup unless output is a TTY; no `MANPATH` computation unless `MANPATH` is set or `manpath` exists (cache the `which manpath` result in `.cache/`); no `npm --version` ever (§11); the eval file is written with one `write(2)`; exit via `_exit` after flushing.
 
@@ -645,9 +645,9 @@ Measured on an idle Apple-silicon Mac with hyperfine `-N`, `--warmup 20`, ≥ 30
 - Per-exec: `hyperfine -N '<resolved path>/node -e 0'` for the direct binary vs each manager's shim; the difference is the shim tax.
 - First-prompt lag, the user-perceived number: `romkatv/zsh-bench` (`first_prompt_lag_ms`, `command_lag_ms`) once per release.
 
-**In-process timings.** `NVM_TIMINGS=1` makes `nvm-core` print one line to stderr on exit: `nvm-core timings (µs): setup … command … eval-write … total …` (from the start of `main`; process start-up and dynamic loading before `main` are not included, measure those with the harness). Zero cost when unset (one `getenv`).
+**In-process timings.** `NVM_TIMINGS=1` makes `nvmr` print one line to stderr on exit: `nvmr timings (µs): setup … command … eval-write … total …` (from the start of `main`; process start-up and dynamic loading before `main` are not included, measure those with the harness). Zero cost when unset (one `getenv`).
 
-**Native profilers.** macOS: `samply record ./nvm-core …` (Firefox Profiler UI; works on any native binary) or `xctrace record --template 'Time Profiler'`; `DYLD_PRINT_STATISTICS` no longer prints on macOS 15+, so audit load cost with `otool -L` and `dyld_info -dependents`. Linux: `perf stat -e task-clock,page-faults,syscalls` and `cargo flamegraph`. Syscall counts: `strace -c` (Linux), `dtruss` (mac, needs SIP relaxed; CI uses the Linux count as the gate). In-process micro-benchmarks with `divan` for version parsing/sorting (1,000 entries), `nvm_change_path`, `index.tab` parsing, `.nvmrc` parsing, and the awk-port formatter.
+**Native profilers.** macOS: `samply record ./nvmr …` (Firefox Profiler UI; works on any native binary) or `xctrace record --template 'Time Profiler'`; `DYLD_PRINT_STATISTICS` no longer prints on macOS 15+, so audit load cost with `otool -L` and `dyld_info -dependents`. Linux: `perf stat -e task-clock,page-faults,syscalls` and `cargo flamegraph`. Syscall counts: `strace -c` (Linux), `dtruss` (mac, needs SIP relaxed; CI uses the Linux count as the gate). In-process micro-benchmarks with `divan` for version parsing/sorting (1,000 entries), `nvm_change_path`, `index.tab` parsing, `.nvmrc` parsing, and the awk-port formatter.
 
 **Harness.** `bench/` implements the matrix above (AGENTS.md, "Benchmarking and profiling", has the rules): `bench/docker.sh` runs it in a pinned image with no network, a fixed CPU set and memory cap; `bench/host.sh` runs it on the developer machine in a sandbox. Both write `bench/results/<stamp>-<where>/` (`report.md`, `summary.json`, `meta.json`, `profile.md`). Not done yet: running it in CI with a regression threshold against a committed baseline.
 
@@ -659,7 +659,7 @@ Shell-startup overhead (`zsh -ic exit`, min over 3 rotated rounds, minus 6.2 ms 
 |---|---|---|---:|---:|---:|---:|---|
 | nvm 0.40.8 | POSIX sh | sourced function, auto-use | +601 | +6.5 (hook) | +203 | 0 | reference |
 | nvm 0.40.8 `--no-use` | | | +15 | | | 0 | |
-| **this spec (budget)** | Rust | tiny function + `nvm-core`, chpwd-only hook | **≤ 3** | **≤ 2** | **≤ 2.5** | **0** | **yes** |
+| **this spec (budget)** | Rust | tiny function + `nvmr`, chpwd-only hook | **≤ 3** | **≤ 2** | **≤ 2.5** | **0** | **yes** |
 | fnm 1.39.0 | Rust | `eval $(fnm env --use-on-cd)`; per-shell symlink dir; chpwd hook | +7.3 | ≈ 0 | +2.4 | 0 | no (`FNM_DIR`, no `nvm alias`, no `.nvmrc` comments, no `--reinstall-packages-from`) |
 | mise 2026.10.17 | Rust | `eval $(mise activate)`; **precmd + chpwd** `hook-env` every prompt | +23.5 | +12.7 | +14 | 0 (hook) / +11.7 (shim mode) | no (`.nvmrc` opt-in since 2025.10; `mise sync node --nvm` imports) |
 | proto 0.63.1 | Rust | shims (`proto run` detection per exec) + `activate` hook | +16.3 | +8.5 | +9.9 | +26.3 | no |
@@ -689,7 +689,7 @@ Direct competitors to this exact idea exist and should be tracked, not ignored: 
 
 ### 14.1 Decision
 
-`nvm-core` and `nvm-fetch` are written in **Rust** (stable, 6-week train; MSRV = current stable − 2). Zig and Swift were evaluated against the same requirements — ≤ 2 ms hot-path startup, HTTPS to nodejs.org and corporate mirrors through `HTTPS_PROXY` with system and custom CA trust, sha256, tar.xz/tar.gz, terminfo, single static-ish binaries for macOS arm64/x86_64 and Linux x86_64/aarch64 (glibc + musl), Homebrew and curl-installer distribution — with local measurements and source-level checks of each toolchain. Rust is the only option where every requirement works today without writing infrastructure; its single weakness (framework link cost) is solved by the two-binary split in §13.2.
+`nvmr` and `nvmr-fetch` are written in **Rust** (stable, 6-week train; MSRV = current stable − 2). Zig and Swift were evaluated against the same requirements — ≤ 2 ms hot-path startup, HTTPS to nodejs.org and corporate mirrors through `HTTPS_PROXY` with system and custom CA trust, sha256, tar.xz/tar.gz, terminfo, single static-ish binaries for macOS arm64/x86_64 and Linux x86_64/aarch64 (glibc + musl), Homebrew and curl-installer distribution — with local measurements and source-level checks of each toolchain. Rust is the only option where every requirement works today without writing infrastructure; its single weakness (framework link cost) is solved by the two-binary split in §13.2.
 
 ### 14.2 Scorecard
 
@@ -719,14 +719,14 @@ Local numbers: Apple M2 Max, same hot-path program in each language (read `alias
 
 **Swift** is the natural macOS-first choice and is excellent there: 62 KB binary, 1.9–2.6 ms, system TLS and keychain for free. It fails the "most compatible" bar on exactly the enterprise paths: `URLSession` ignores `HTTPS_PROXY` on macOS (nvm users set it; fnm/volta/proto issue trackers are full of it), Linux networking is libcurl behind `FoundationNetworking` with no proxy or CA API, static Linux binaries start at 13 MB and need a separate toolchain, and no xz headers ship in the SDK. Fixing those means AsyncHTTPClient + NIOSSL + hand-parsed proxy env + a C liblzma module map — more infrastructure than the project itself. Re-evaluate if a Linux-static Foundation with proxy support lands under 5 MB.
 
-**Rust** costs 1 ms of `Security.framework` load if the network stack lives in the hot binary (fnm pays it) and a 117-crate dependency tree. Both are handled: the split in §13.2 keeps `nvm-core` at libSystem-only (1.6 ms measured, below every competitor), and the tree is pinned (`Cargo.lock` committed, `cargo deny` for licences/advisories, `cargo vet` or `cargo crev` review of the TLS/compression crates, no `tokio` — `ureq` is synchronous).
+**Rust** costs 1 ms of `Security.framework` load if the network stack lives in the hot binary (fnm pays it) and a 117-crate dependency tree. Both are handled: the split in §13.2 keeps `nvmr` at libSystem-only (1.6 ms measured, below every competitor), and the tree is pinned (`Cargo.lock` committed, `cargo deny` for licences/advisories, `cargo vet` or `cargo crev` review of the TLS/compression crates, no `tokio` — `ureq` is synchronous).
 
 ### 14.4 Stack (binding)
 
 | Concern | Choice | Note |
 |---|---|---|
 | Edition / toolchain | Rust 2024 edition, stable, `rust-toolchain.toml` pinned per release | `panic = "abort"`, `lto = "fat"`, `codegen-units = 1`, `strip = true`, `opt-level = 3` |
-| HTTPS (`nvm-fetch` only) | `ureq` 3 (rustls + ring, `platform-verifier`, `gzip`) | synchronous; proxy env + CONNECT + `NO_PROXY` built in; `NVM_CA_BUNDLE`/`SSL_CERT_FILE` appended via `rustls_native_certs` on Linux and explicit PEM load on all platforms |
+| HTTPS (`nvmr-fetch` only) | `ureq` 3 (rustls + ring, `platform-verifier`, `gzip`) | synchronous; proxy env + CONNECT + `NO_PROXY` built in; `NVM_CA_BUNDLE`/`SSL_CERT_FILE` appended via `rustls_native_certs` on Linux and explicit PEM load on all platforms |
 | TLS trust | `rustls-platform-verifier` | macOS keychain + MDM roots; Linux native store |
 | xz / gzip / tar | `liblzma` (static), `flate2` (`zlib-rs`), `tar` | strip one component, no owner, mode bits kept (§11) |
 | Hashing | `sha2` | streamed during download |
@@ -748,7 +748,7 @@ resolution (§3–4), PATH/MANPATH/NODE_PATH editing and the prefix guard (§5),
 
 Interrupts: Ctrl-C during a download keeps the partial tarball (the next install resumes it with `Range:`); during extraction it removes the half-extracted `files/` tree and keeps the verified tarball; in both cases `nvm install` returns 130 and releases its install lock. Upstream leaves the lock behind.
 
-Measured with `bench/host.sh` on an Apple M2 Max, macOS 15.6 ([`bench/results/20261022-162253-host-darwin-arm64`](bench/results/20261022-162253-host-darwin-arm64/report.md); a noisy run, load 18–37, so minimums): one `nvm-core` process 1.6–1.9 ms (`true` 1.0 ms, `fnm env` 2.9 ms); shell startup with auto-use +3.1 ms bash / +3.7 ms zsh (upstream +143 / +478 ms, fnm +3.8 / +4.2 ms); `nvm use` 3.3 ms per call in bash (upstream 201 ms, `fnm use` 3.4 ms); `nvm ls` with 102 versions 4.9 ms (upstream 1,361 ms, `fnm ls` 4.0 ms); install from a loopback mirror 1.9 s (upstream 4.0 s, fnm 2.3 s); peak RSS 1.5 MB. On macOS `nvm-core` links libSystem only. `cd` without a version file costs one `nvm-core` process (2.7 ms) with nvm-fast's hook, while fnm's hook checks for a version file in the shell (0.02 ms). Docker reference run ([`bench/results/20261022-180813-docker-aarch64`](bench/results/20261022-180813-docker-aarch64/report.md), Linux arm64, 2 pinned CPUs, also noisy, minimums): one `nvm-core` process 0.06–0.21 ms (`true` 0.11 ms, `fnm env` 0.31 ms); startup with auto-use +0.66 ms bash / +0.91 ms zsh (upstream +53 / +187 ms, fnm +0.57 / +0.87 ms); `nvm use` 0.70 ms (upstream 108 ms, fnm 0.46 ms); `nvm ls` with 102 versions 1.2 ms (upstream 772 ms, fnm 0.59 ms); install 1.5 s (upstream 2.2 s, fnm 1.5 s). Upstream `nvm use` runs 20 programs (sed, awk, grep, tr, uname, npm, node, ...); nvm-fast runs one. Static musl binaries: `nvm-core` 0.66 MB, `nvm-fetch` 1.97 MB. The static `nvm-core` makes 75 syscalls on the `__auto use` path (budget 80).
+Measured with `bench/host.sh` on an Apple M2 Max, macOS 15.6 ([`bench/results/20261022-162253-host-darwin-arm64`](bench/results/20261022-162253-host-darwin-arm64/report.md); a noisy run, load 18–37, so minimums): one `nvmr` process 1.6–1.9 ms (`true` 1.0 ms, `fnm env` 2.9 ms); shell startup with auto-use +3.1 ms bash / +3.7 ms zsh (upstream +143 / +478 ms, fnm +3.8 / +4.2 ms); `nvm use` 3.3 ms per call in bash (upstream 201 ms, `fnm use` 3.4 ms); `nvm ls` with 102 versions 4.9 ms (upstream 1,361 ms, `fnm ls` 4.0 ms); install from a loopback mirror 1.9 s (upstream 4.0 s, fnm 2.3 s); peak RSS 1.5 MB. On macOS `nvmr` links libSystem only. `cd` without a version file costs one `nvmr` process (2.7 ms) with nvmr's hook, while fnm's hook checks for a version file in the shell (0.02 ms). Docker reference run ([`bench/results/20261022-180813-docker-aarch64`](bench/results/20261022-180813-docker-aarch64/report.md), Linux arm64, 2 pinned CPUs, also noisy, minimums): one `nvmr` process 0.06–0.21 ms (`true` 0.11 ms, `fnm env` 0.31 ms); startup with auto-use +0.66 ms bash / +0.91 ms zsh (upstream +53 / +187 ms, fnm +0.57 / +0.87 ms); `nvm use` 0.70 ms (upstream 108 ms, fnm 0.46 ms); `nvm ls` with 102 versions 1.2 ms (upstream 772 ms, fnm 0.59 ms); install 1.5 s (upstream 2.2 s, fnm 1.5 s). Upstream `nvm use` runs 20 programs (sed, awk, grep, tr, uname, npm, node, ...); nvmr runs one. Static musl binaries: `nvmr` 0.66 MB, `nvmr-fetch` 1.97 MB. The static `nvmr` makes 75 syscalls on the `__auto use` path (budget 80).
 
 Not done: the parity suite on macOS (the macOS build is exercised only by the benchmark harness's checks: `use`, `current`, `version`, `ls`, the `cd` hooks and `install` from a local mirror); io.js installation (non-goal); `NVM_AUTH_HEADER` is checked against a header-logging local mirror (sent, sanitized, on every index, checksum and tarball request, like upstream) but not against a real authenticated mirror; running upstream's urchin test suite directly (its tests call internal shell functions that the native build intentionally does not define; its user-visible cases are ported into `scripts/scenario11*.sh` and `scenario13.sh`).
 

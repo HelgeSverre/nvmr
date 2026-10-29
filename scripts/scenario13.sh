@@ -4,7 +4,7 @@ t() { printf '=== nvm %s\n' "$*"; nvm "$@" 2>&1; echo "rc=$?"; }
 src() { printf '=== . nvm.sh %s\n' "$*"; . "$SRC" "$@" 2>&1; echo "rc=$?"; }
 mkn() { for v in "$@"; do d="$NVM_DIR/versions/node/$v/bin"; mkdir -p "$d"
   printf '#!/bin/sh\necho %s\n' "$v" > "$d/node"; chmod +x "$d/node"; done; }
-SRC=/opt/nvm-upstream/nvm.sh; [ -n "${NVM_CORE-}" ] && SRC=/src/nvm.sh
+SRC=/opt/nvm-upstream/nvm.sh; [ -n "${NVMR_EXE-}" ] && SRC=/src/nvm.sh
 rm -rf /tmp/p13 "/tmp/nvm 13" && mkdir -p /tmp/p13/rc "$NVM_DIR/alias" && cd /tmp/p13
 mkn v20.10.0 v22.11.0 v22.12.0
 D=$NVM_DIR
@@ -66,7 +66,7 @@ echo "set -e subshell rc=$?"
 (CDPATH=/tmp/p13; cd / && cd rc >/dev/null; nvm use >/dev/null 2>&1; echo "CDPATH: rc=$? node=$(node -v) pwd=$PWD")
 # --- NVM_DIR containing a space
 (NVM_DIR="/tmp/nvm 13"; mkn v22.12.0; mkdir "$NVM_DIR/alias"; echo 22 > "$NVM_DIR/alias/default"
-  if [ -n "${NVM_CORE-}" ]; then cp /src/nvm-exec "$NVM_CORE" "$NVM_DIR/"
+  if [ -n "${NVMR_EXE-}" ]; then cp /src/nvm-exec "$NVMR_EXE" "$NVM_DIR/"
   else cp /opt/nvm-upstream/nvm-exec "$NVM_DIR/"; ln -s "$SRC" "$NVM_DIR/nvm.sh"; fi
   nvm deactivate >/dev/null; . "$SRC"; echo "space: rc=$? node=$(node -v)"
   nvm current; nvm which 22; nvm alias default; nvm ls --no-alias; nvm use 22; nvm exec 22 node)

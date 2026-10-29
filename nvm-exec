@@ -1,4 +1,4 @@
 #!/bin/sh
-# Native nvm-exec: no shell state needed, nvm-core resolves NODE_VERSION / .nvmrc and execs the command.
+# Native nvm-exec: no shell state needed, nvmr resolves NODE_VERSION / .nvmrc and execs the command.
 DIR="$(cd "$(dirname "$0")" && pwd)"
-NVM_DIR="${NVM_DIR:-$DIR}" exec "${NVM_CORE:-$DIR/nvm-core}" exec-internal "$@"
+NVM_DIR="${NVM_DIR:-$DIR}" exec "${NVMR_EXE:-$DIR/nvmr}" exec-internal "$@"
