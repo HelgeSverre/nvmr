@@ -3,13 +3,13 @@
 [![Latest release](https://img.shields.io/github/v/release/HelgeSverre/nvmr?style=flat-square)](https://github.com/HelgeSverre/nvmr/releases)
 [![MIT license](https://img.shields.io/badge/license-MIT-blue?style=flat-square)](LICENSE)
 
-nvmr runs the `nvm` command with a Rust executable and a small shell function for environment changes. It uses the same `$NVM_DIR` layout, installed Node versions, aliases, and `.nvmrc` files as [nvm](https://github.com/nvm-sh/nvm).
+nvmr implements [nvm](https://github.com/nvm-sh/nvm) in Rust. It keeps the `nvm` shell command and uses your existing `$NVM_DIR`, installed Node versions, aliases, and `.nvmrc` files.
 
-**Experimental.** The compatibility target is nvm v0.40.8. See [compatibility](#compatibility) for test coverage and known differences.
+**Experimental.** It targets nvm v0.40.8; see [compatibility](#compatibility) for test coverage and known differences.
 
 ## Install
 
-Release bundles are available for Linux and macOS on arm64 and x86_64. Shell integration supports bash, zsh, POSIX sh, and fish.
+Bundles support Linux and macOS on arm64 and x86_64. Shell integration supports bash, zsh, POSIX sh, and fish.
 
 ### Homebrew
 
@@ -17,7 +17,7 @@ Release bundles are available for Linux and macOS on arm64 and x86_64. Shell int
 brew install HelgeSverre/tap/nvmr
 ```
 
-Homebrew installs the files but does not edit your shell profile. Add this to `~/.zshrc` or `~/.bashrc`. Replace `/opt/homebrew` with your `brew --prefix` output if it differs:
+Homebrew leaves your shell profile untouched. Add this to `~/.zshrc` or `~/.bashrc`, replacing `/opt/homebrew` with the output of `brew --prefix` if different:
 
 ```sh
 export NVM_DIR="$HOME/.nvm"
@@ -33,18 +33,20 @@ set -gx NVMR_EXE /opt/homebrew/opt/nvmr/bin/nvmr
 source /opt/homebrew/opt/nvmr/share/nvmr/nvm.fish
 ```
 
-The `opt/nvmr` path follows Homebrew upgrades. Keep your existing `NVM_DIR` if you already use nvm.
+The `opt/nvmr` path follows Homebrew upgrades. If you use nvm already, keep its `NVM_DIR`.
 
 ### Release bundle
 
-Download the installer from the release you want and point it at that release's bundles:
+Install v0.1.1:
 
 ```sh
 curl -fsSLO https://raw.githubusercontent.com/HelgeSverre/nvmr/v0.1.1/install.sh
 NVMR_URL=https://github.com/HelgeSverre/nvmr/releases/download/v0.1.1 sh install.sh
 ```
 
-The installer chooses `$XDG_CONFIG_HOME/nvm` when `XDG_CONFIG_HOME` is set, otherwise `~/.nvm`. It edits a detected shell profile; set `PROFILE=/dev/null` to skip that step. It replaces the integration files in `NVM_DIR`, so save a copy of an existing `nvm.sh` if you want a simple rollback. See [install.sh](install.sh) for local-bundle and profile options.
+The installer uses `NVM_DIR` if set. Otherwise it chooses `$XDG_CONFIG_HOME/nvm` when `XDG_CONFIG_HOME` is set, or `~/.nvm`. It updates a detected shell profile; set `PROFILE=/dev/null` to skip that step.
+
+It replaces the integration files in `NVM_DIR`. Back up `$NVM_DIR/nvm.sh` before installing over an existing nvm setup. See [install.sh](install.sh) for local-bundle and profile options.
 
 Open a new shell after installation. To activate it immediately in bash or zsh:
 
@@ -55,25 +57,23 @@ export NVM_DIR="$HOME/.nvm" # Use the directory printed by the installer if diff
 
 ## Use
 
-The shell command is `nvm`. Use it as you would upstream nvm:
+Install Node 22 and make it the default for new shells:
 
 ```sh
-nvm install 22             # Install and use the latest Node 22 release.
-nvm alias default 22       # Use Node 22 in new shells.
-nvm use 22                 # Switch this shell to an installed Node 22.
-nvm current                # Show the active version.
-nvm ls                     # Show installed versions and aliases.
+nvm install 22
+nvm alias default 22
+nvm current
+nvm ls
 ```
 
-For a project, put a version in `.nvmrc`:
+In a project, `nvm install` reads `.nvmrc` and selects the requested version:
 
 ```sh
 echo 22 > .nvmrc
-nvm install                # Install the version requested by .nvmrc.
-nvm use                    # Select it in this shell.
+nvm install
 ```
 
-Call `nvm` through the shell integration when you need to change the current shell's `PATH`. The standalone `nvmr` binary cannot change its parent shell. If you want a command named `nvmr`, define `alias nvmr='nvm'` after loading the integration.
+Use the `nvm` shell function for commands that change `PATH`; the `nvmr` executable cannot modify its parent shell. To use the name `nvmr`, add `alias nvmr='nvm'` after loading the integration.
 
 ### Commands
 
@@ -99,14 +99,14 @@ Call `nvm` through the shell integration when you need to change the current she
 | `nvm cache dir` / `nvm cache clear` | Show or clear the download cache. |
 | `nvm set-colors [codes]` | Set the five output colors. |
 | `nvm debug` | Print environment and installation diagnostics. |
-| `nvm --help` | Show all commands and flags. |
+| `nvm --help` | Show usage and common flags. |
 | `nvm --version` | Show the upstream compatibility version. |
 
-Common flags include `--lts`, `--save`, `--offline`, `-s` (source only), and `-b` (binary only). See [the full command reference](src/help.txt) for flag placement and additional install options. `nvm --version` reports the upstream compatibility version, `0.40.8`; the [releases page](https://github.com/HelgeSverre/nvmr/releases) shows the nvmr package version.
+Use `--lts` with `install` or `use`, and `--save` to write `.nvmrc`. For installation, `--offline`, `-s` (source only), and `-b` (binary only) control how Node is obtained. See the [CLI help](src/help.txt) for flag placement and other options.
 
-### Switch on directory changes
+### Switch after `cd`
 
-The optional hook selects the nearest `.nvmrc` when you change directories and restores your default version when you leave a project. Add it **after** sourcing `nvm.sh`.
+Add a directory hook after sourcing `nvm.sh` to select the nearest `.nvmrc` on `cd` and restore your default when you leave a project.
 
 For zsh:
 
@@ -121,7 +121,7 @@ For bash:
 cd() { builtin cd "$@" && nvm_auto_cd; }
 ```
 
-Fish installs its directory hook with `nvm.fish`. The bash and zsh hook handles common no-change moves in the shell and calls nvmr when version resolution or switching is needed.
+`nvm.fish` installs the fish directory hook when sourced.
 
 ### Startup options
 
@@ -133,13 +133,15 @@ Set these before sourcing `nvm.sh`:
 | `NVM_LAZY=1 NVM_LAZY_PATH=1` | Put an installed exact `alias/default` version on `PATH` without launching nvmr at startup. |
 | `. "$NVM_DIR/nvm.sh" --no-use` | Load the POSIX integration without selecting a version. |
 
-Lazy path is opt-in: it does not select an initial project's `.nvmrc` over the exact default and defers some eager `nvm use` setup. See the [measured comparison](docs/performance/lazy-startup-2026-11-06.md).
+Lazy path starts with the exact default even when the initial directory has a different `.nvmrc`, and defers some `nvm use` setup. See its [behavior and measurements](docs/performance/lazy-startup-2026-11-06.md).
 
 ## Compatibility
 
-nvmr targets nvm v0.40.8, including its on-disk version and alias layout. An existing nvm installation can share `NVM_DIR` with nvmr. It recognizes installed io.js and pre-0.12 Node versions; installing io.js is unsupported.
+nvmr recognizes older io.js and pre-0.12 Node installations, but cannot install io.js.
 
-The [specification](nvm-compat-spec.md) records the behavior contract and [known differences](nvm-compat-spec.md#15-implementation-status-2026-11-06). Linux arm64 has passed the full Docker parity gate against upstream; the macOS bundles have build and installation smoke coverage, but not the full parity suite. See [performance results](docs/performance/README.md) for pinned comparisons with nvm, fnm, mise, and proto.
+The parity gate passed against nvm v0.40.8 on Linux arm64 in Docker. macOS bundles pass build and installation smoke tests; the parity gate has not run on macOS. The [specification](nvm-compat-spec.md) records the behavior contract and [known differences](nvm-compat-spec.md#15-implementation-status-2026-11-06). See [performance results](docs/performance/README.md) for comparisons with nvm, fnm, mise, and proto.
+
+`nvm --version` reports the nvm compatibility version, `0.40.8`. See [releases](https://github.com/HelgeSverre/nvmr/releases) for the nvmr package version.
 
 ## Development
 
@@ -150,7 +152,7 @@ docker build -t nvmr-dev docker
 scripts/verify.sh
 ```
 
-The gate runs a clean Rust build, formatting, Clippy, unit tests, upstream command comparisons, shell and color checks, read-only installation, interrupts, and portability checks. To build a Linux release bundle locally:
+The gate checks the Rust build, formatting, Clippy, unit tests, upstream parity, shell behavior, read-only installs, interrupts, and portability. To build a Linux release bundle locally:
 
 ```sh
 scripts/d.sh sh -c 'touch src/*.rs src/bin/*.rs && sh /src/scripts/bundle.sh'
