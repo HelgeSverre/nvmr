@@ -1,0 +1,19 @@
+# Small binary mirror for cache validation and offline-fetch parity.
+rm -rf /srv/d18 /tmp/mk18
+mkdir -p /srv/d18/dist/v24.1.0 /tmp/mk18
+case "$(uname -m)" in aarch64|arm64) A18=arm64;; x86_64) A18=x64;; *) A18=$(uname -m);; esac
+V18=v24.1.0
+S18=node-$V18-linux-$A18
+mkdir -p /tmp/mk18/$S18/bin /tmp/mk18/$S18/lib/node_modules/npm
+printf '#!/bin/sh\necho %s\n' "$V18" > /tmp/mk18/$S18/bin/node
+printf '#!/bin/sh\necho 10.0.0\n' > /tmp/mk18/$S18/bin/npm
+chmod +x /tmp/mk18/$S18/bin/node /tmp/mk18/$S18/bin/npm
+printf '{"version":"10.0.0"}\n' > /tmp/mk18/$S18/lib/node_modules/npm/package.json
+tar -C /tmp/mk18 -cJf /srv/d18/dist/$V18/$S18.tar.xz $S18
+(cd /srv/d18/dist/$V18 && sha256sum $S18.tar.xz > SHASUMS256.txt)
+printf 'version\tdate\tfiles\tnpm\tv8\tuv\tzlib\topenssl\tmodules\tlts\tsecurity\n%s\t2026-01-01\tlinux-%s\t10.0.0\t-\t-\t-\t-\t-\t-\t-\n' "$V18" "$A18" > /srv/d18/dist/index.tab
+mkdir -p /srv/d18/iojs
+printf 'version\tdate\tfiles\tnpm\tv8\tuv\tzlib\topenssl\tmodules\n' > /srv/d18/iojs/index.tab
+python3 -m http.server 8118 --bind 127.0.0.1 -d /srv/d18 >/dev/null 2>&1 & SRV_PID=$!
+sleep 1
+export NVM_NODEJS_ORG_MIRROR=http://127.0.0.1:8118/dist NVM_IOJS_ORG_MIRROR=http://127.0.0.1:8118/iojs

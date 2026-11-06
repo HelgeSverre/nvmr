@@ -1,6 +1,12 @@
 # nvm (native) for fish. Install as ~/.config/fish/conf.d/nvm.fish (or source it from config.fish).
 # NVM_LAZY=1 skips the startup auto-use (run `nvm use` yourself); the cd hook below still applies.
-set -q NVM_DIR; or set -gx NVM_DIR $HOME/.nvm
+if not set -q NVM_DIR
+    if set -q XDG_CONFIG_HOME; and test -n "$XDG_CONFIG_HOME"
+        set -gx NVM_DIR $XDG_CONFIG_HOME/nvm
+    else
+        set -gx NVM_DIR $HOME/.nvm
+    end
+end
 
 function __nvmr_exe
     if test -n "$NVMR_EXE"

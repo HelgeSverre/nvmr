@@ -1,0 +1,12 @@
+# Fixed local installs for command-dispatch and argument-parsing parity.
+rm -rf /tmp/p22
+mkdir -p /tmp/p22
+mkdir -p "$NVM_DIR/alias"
+for v in v20.10.0 v20.11.0 v22.12.0; do
+  d="$NVM_DIR/versions/node/$v/bin"
+  mkdir -p "$d"
+  printf '#!/bin/sh\necho %s "$@"\n' "$v" > "$d/node"
+  chmod +x "$d/node"
+done
+printf '22\n' > "$NVM_DIR/alias/default"
+cd /tmp/p22

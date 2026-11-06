@@ -85,8 +85,11 @@ nvm_rc_version() {
 # --- lazy mode (spec §9.3) ---
 __nvm_lazy_load() {
   unset __NVM_LAZY_PENDING
+  if [ "${IFS+x}" = x ]; then __nvm_lazy_had_ifs=1; __nvm_lazy_ifs=$IFS; else __nvm_lazy_had_ifs=; fi
+  IFS=' '
   for __nvm_c in ${NVM_LAZY_CMDS:-node npm npx corepack yarn pnpm}; do unset -f "$__nvm_c" 2>/dev/null; done
-  unset __nvm_c
+  if [ -n "$__nvm_lazy_had_ifs" ]; then IFS=$__nvm_lazy_ifs; else unset IFS; fi
+  unset __nvm_c __nvm_lazy_ifs __nvm_lazy_had_ifs
   nvm __auto use >/dev/null 2>&1
 }
 __nvm_lazy_stub() {
@@ -119,10 +122,13 @@ case "$__nvm_mode" in
         __NVM_LAZY_PENDING=1
       fi
       if [ -n "${__NVM_LAZY_PENDING-}" ]; then
+        if [ "${IFS+x}" = x ]; then __nvm_lazy_had_ifs=1; __nvm_lazy_ifs=$IFS; else __nvm_lazy_had_ifs=; fi
+        IFS=' '
         for __nvm_c in ${NVM_LAZY_CMDS:-node npm npx corepack yarn pnpm}; do
           eval "${__nvm_c}() { __nvm_lazy_stub ${__nvm_c} \"\$@\"; }"
         done
-        unset __nvm_c
+        if [ -n "$__nvm_lazy_had_ifs" ]; then IFS=$__nvm_lazy_ifs; else unset IFS; fi
+        unset __nvm_c __nvm_lazy_ifs __nvm_lazy_had_ifs
       fi
     else
       nvm __auto use >/dev/null

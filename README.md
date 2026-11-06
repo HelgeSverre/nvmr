@@ -13,6 +13,12 @@ Keep your nvm commands, installed versions, aliases, and `.nvmrc` files. nvmr ru
 
 ## Install
 
+**Linux, prebuilt.** From a checkout on Linux x86_64 or arm64:
+
+```sh
+NVMR_URL=https://github.com/HelgeSverre/nvmr/releases/download/v0.1.0 sh install.sh
+```
+
 **Linux, from source.** Run these commands from a checkout on a Linux host with Docker running. The bundle is built for the container’s architecture. macOS is a target but has not yet been built or tested.
 
 ```sh

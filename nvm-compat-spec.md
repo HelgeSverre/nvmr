@@ -741,9 +741,9 @@ Revisit trigger for this decision: a MUST in §13.2 that cannot be met in Rust a
 
 ---
 
-## 15. Implementation status (2026-10-22)
+## 15. Implementation status (2026-11-06)
 
-Implemented in Rust (`src/`), verified on Linux (arm64) inside Docker against upstream nvm v0.40.8 with `scripts/verify.sh` (clean build, unit tests, 669 compared commands (14 scenarios, including cases ported from upstream's own test suite and fnm's e2e tests), colour, bash, zsh (also with oh-my-zsh-style global aliases and options), fish, portability, Ctrl-C):
+Implemented in Rust (`src/`), verified on Linux (arm64) inside Docker against upstream nvm v0.40.8 with `scripts/verify.sh` (clean build, unit tests, 753 compared commands (23 scenarios, including cases ported from upstream's own test suite and fnm's e2e tests), colour, bash, zsh (also with oh-my-zsh-style global aliases and options), fish, portability, Ctrl-C):
 resolution (§3–4), PATH/MANPATH/NODE_PATH editing and the prefix guard (§5), every command in §6 including source builds (`install -s`, the source fallback, `-j`, `NVM_MAKE_JOBS`, extra `configure` arguments; checked against a fake source-only mirror), `.nvmrc`, aliases, LTS maintenance, offline installs, install locks, third-party hook, `default-packages`, `--latest-npm`, `reinstall-packages`, colours and `set-colors`, `debug`, `unload`, system node, existing io.js installs (`versions/io.js`) and pre-0.12 installs in the old `$NVM_DIR/vX` layout (listed, resolved, used, run and uninstalled), lazy mode, `nvm-exec`, installer, fish integration, static musl bundle.
 
 Interrupts: Ctrl-C during a download keeps the partial tarball (the next install resumes it with `Range:`); during extraction it removes the half-extracted `files/` tree and keeps the verified tarball; in both cases `nvm install` returns 130 and releases its install lock. Upstream leaves the lock behind.
@@ -758,5 +758,6 @@ Known remaining differences from upstream, deliberately not fixed (rare in pract
 - `nvm version 20*` resolves to `N/A` (upstream's glob accepts it); `ls unstable` with no odd 0.x installed prints one `N/A` line fewer.
 - `NVM_COLORS` with invalid codes: upstream prints `Invalid color code: z` per bad code, native falls back silently to the default palette.
 - `install` with bare option-only invocations (`-s`, `--alias`, `--alias=`, `--offline` and no version/.nvmrc): both print "No version provided and no .nvmrc file found"; native then prints the usage (rc 127), upstream installs the latest node (from source with `-s`).
+- Unknown leading `install` options can produce upstream `grep` usage errors before rc 3; native prints its usage instead.
 - Invalid `.nvmrc` with `install --offline`.
 - Read-only `NVM_DIR`: `alias` creation failures exit 1 silently instead of printing the underlying `mkdir`/`tee` error.

@@ -7,7 +7,14 @@ fn is_nvm_entry(e: &str, dir: &str, suffix: &str) -> bool {
     };
     let parts: Vec<&str> = rest.split('/').collect();
     let sfx: Vec<&str> = suffix.trim_start_matches('/').split('/').collect();
-    let shaped = |n: usize| parts.len() >= n + sfx.len() && parts[n..n + sfx.len()] == sfx[..];
+    let shaped = |n: usize| {
+        let Some(last) = n.checked_add(sfx.len()).and_then(|i| i.checked_sub(1)) else {
+            return false;
+        };
+        parts.len() > last
+            && parts[n..last] == sfx[..sfx.len() - 1]
+            && parts[last].starts_with(sfx[sfx.len() - 1])
+    };
     (parts.first() != Some(&"versions") && shaped(1))
         || (parts.first() == Some(&"versions") && shaped(3))
 }
@@ -43,7 +50,7 @@ pub fn strip_path(path: &str, suffix: &str, nvm_dir: &str) -> String {
         .filter(|e| !is_nvm_entry(e, nvm_dir, suffix))
         .collect();
     let mut s = kept.join(":");
-    if path.ends_with(':') && !s.ends_with(':') && !s.is_empty() {
+    if path.ends_with(':') && !s.ends_with(':') {
         s.push(':');
     }
     s
@@ -86,6 +93,20 @@ mod tests {
     fn strip() {
         assert_eq!(
             strip_path("/h/.nvm/versions/node/v18.0.0/bin:/usr/bin", "/bin", D),
+            "/usr/bin"
+        );
+    }
+    #[test]
+    fn strip_preserves_only_trailing_empty_entry() {
+        assert_eq!(
+            strip_path("/h/.nvm/versions/node/v18.0.0/bin:", "/bin", D),
+            ":"
+        );
+    }
+    #[test]
+    fn nvm_entry_accepts_suffixes_after_bin() {
+        assert_eq!(
+            strip_path("/h/.nvm/versions/node/v18.0.0/bin-old:/usr/bin", "/bin", D),
             "/usr/bin"
         );
     }

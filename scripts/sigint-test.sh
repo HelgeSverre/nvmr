@@ -41,7 +41,15 @@ ls -l $NVM_DIR/.cache/bin/$SLUG/ | awk 'NR>1{print $5, $9}'
 DELAY=0 pkill -f slow.py; (cd /srv2 && DELAY=0 exec python3 /tmp/slow.py >/dev/null 2>&1 &); sleep 0.5; up
 $F install $NVM_NODEJS_ORG_MIRROR $V $NVM_DIR --dest=$NVM_DIR/versions/node/$V --no-progress 2>&1 | tail -3; echo "resume rc=${PIPESTATUS[0]}"
 ls $NVM_DIR/versions/node/$V/bin; echo "cached tarball kept: $(ls $NVM_DIR/.cache/bin/$SLUG | tr '\n' ' ')"
-# 3) interrupt during extraction (big xz): remove version, restart with cached tarball, SIGINT shortly after start
+# 3) interrupt extraction after a fresh download in the same process.
+# The download handler must clean up the extraction tree when its role changes.
+rm -rf $NVM_DIR/versions $NVM_DIR/.cache
+$F install $NVM_NODEJS_ORG_MIRROR $V $NVM_DIR --dest=$NVM_DIR/versions/node/$V --no-progress >/dev/null 2>&1 &
+PID=$!
+for _ in $(seq 2000); do [ -d $NVM_DIR/.cache/bin/$SLUG/files ] && break; sleep 0.01; done
+sleep 0.05; kill -INT $PID; wait $PID; echo "first-download extract interrupted rc=$?"
+echo "first-download files dir present after interrupt: $([ -d $NVM_DIR/.cache/bin/$SLUG/files ] && echo yes || echo no)"
+# 4) interrupt during extraction (big xz): remove version, restart with cached tarball, SIGINT shortly after start
 rm -rf $NVM_DIR/versions
 $F install $NVM_NODEJS_ORG_MIRROR $V $NVM_DIR --dest=$NVM_DIR/versions/node/$V --no-progress >/dev/null 2>&1 &
 PID=$!
@@ -49,7 +57,7 @@ for _ in $(seq 500); do [ -d $NVM_DIR/.cache/bin/$SLUG/files ] && break; sleep 0
 sleep 0.05; kill -INT $PID; wait $PID; echo "extract interrupted rc=$?"
 echo "files dir present after interrupt: $([ -d $NVM_DIR/.cache/bin/$SLUG/files ] && echo yes || echo no); version dir: $([ -d $NVM_DIR/versions/node/$V ] && echo yes || echo no)"
 ls $NVM_DIR/.cache/bin/$SLUG | tr '\n' ' '; echo
-# 4) Ctrl-C on the whole foreground group during `nvm install`: rc 130, the install lock is released
+# 5) Ctrl-C on the whole foreground group during `nvm install`: rc 130, the install lock is released
 rm -rf $NVM_DIR/versions $NVM_DIR/.cache; pkill -f slow.py; (cd /srv2 && exec python3 /tmp/slow.py >/dev/null 2>&1 &); sleep 0.5; up
 setsid bash -c 'NVMR_EXE=/src/target/release/nvmr; . /src/nvm.sh --no-use; nvm install --no-progress v22.50.0 >/dev/null 2>&1; echo "nvm install rc=$?" > /tmp/si.rc' &
 sleep 3; kill -INT -- -$!; sleep 1

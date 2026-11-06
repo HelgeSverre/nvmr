@@ -54,14 +54,35 @@ pub fn http_get(url: &str) -> Result<String, i32> {
     Ok(String::from_utf8_lossy(&out.stdout).into_owned())
 }
 
-/// Sort key across flavours (`iojs-vX.Y.Z` sorts by its number).
+/// Sort key across flavours and prereleases, matching upstream's numeric field sort.
 pub fn key(v: &str) -> Ver {
-    parse_ver(v.strip_prefix("iojs-").unwrap_or(v)).unwrap_or((0, 0, 0))
+    let bare = v.strip_prefix("iojs-").unwrap_or(v);
+    parse_ver(bare.split_once('-').map_or(bare, |(core, _)| core)).unwrap_or((0, 0, 0))
+}
+
+/// Parse index.tab's LTS field the way upstream's awk parser does: it sees the
+/// first whitespace-delimited word and accepts only a conventional codename.
+fn lts_field(field: &str) -> Option<String> {
+    let name = field.split_whitespace().next()?;
+    let lower = name.to_ascii_lowercase();
+    (name != "-"
+        && lower
+            .chars()
+            .next()
+            .is_some_and(|c| c.is_ascii_alphanumeric())
+        && lower
+            .chars()
+            .all(|c| c.is_ascii_alphanumeric() || "._-".contains(c)))
+    .then(|| name.to_string())
 }
 
 /// io.js rows (recognition only): `iojs-vX.Y.Z`, no LTS data.
 pub fn iojs_rows() -> Result<Vec<Row>, i32> {
     let m = env::var("NVM_IOJS_ORG_MIRROR").unwrap_or_else(|_| "https://iojs.org/dist".into());
+    if !mirror_ok(&m) {
+        eprintln!("$NVM_NODEJS_ORG_MIRROR and $NVM_IOJS_ORG_MIRROR may only contain a URL");
+        return Ok(vec![]);
+    }
     let body = http_get(&format!("{}/index.tab", m.trim_end_matches('/')))?;
     Ok(body
         .lines()
@@ -93,7 +114,7 @@ pub fn index(st: &Store) -> Result<Vec<Row>, i32> {
         if c.len() < 10 || !c[0].starts_with('v') {
             continue;
         }
-        let lts = (c[9] != "-").then(|| c[9].to_string());
+        let lts = lts_field(c[9]);
         let mut latest = false;
         if let Some(n) = &lts {
             let low = n.to_lowercase();
@@ -177,7 +198,7 @@ pub fn resolve<'a>(
     if matches!(pat.as_str(), "" | "node" | "stable") {
         return filter(rows, lts, None)
             .into_iter()
-            .rfind(|r| parse_ver(&r.ver).is_some_and(|v: Ver| v.0 >= 1));
+            .rfind(|r| key(&r.ver).0 >= 1);
     }
     filter(rows, lts, Some(&pat)).into_iter().last()
 }

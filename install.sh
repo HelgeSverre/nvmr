@@ -31,7 +31,7 @@ fi
 files="nvm.sh nvmr nvmr-fetch nvm-exec bash_completion nvm.fish"
 # Check the whole bundle first so a broken one never leaves a half-updated install.
 for f in $files; do
-  [ -e "$src/$f" ] || { echo "install.sh: missing $src/$f" >&2; exit 1; }
+  [ -f "$src/$f" ] || { echo "install.sh: missing $src/$f" >&2; exit 1; }
 done
 for f in $files; do
   cp "$src/$f" "$NVM_DIR/$f.new" && mv "$NVM_DIR/$f.new" "$NVM_DIR/$f"
@@ -71,6 +71,11 @@ fi
 # fish: conf.d integration
 if command -v fish >/dev/null 2>&1; then
   fdir="${XDG_CONFIG_HOME:-$HOME/.config}/fish/conf.d"
-  mkdir -p "$fdir" && cp "$NVM_DIR/nvm.fish" "$fdir/nvm.fish" && echo "=> fish integration installed to $fdir/nvm.fish"
+  fish_dir="$(NVM_DIR="$NVM_DIR" fish -N -c 'string escape -- "$NVM_DIR"')"
+  if mkdir -p "$fdir" \
+    && { printf 'set -gx NVM_DIR %s\n' "$fish_dir"; cat "$NVM_DIR/nvm.fish"; } >"$fdir/nvm.fish.new" \
+    && mv "$fdir/nvm.fish.new" "$fdir/nvm.fish"; then
+    echo "=> fish integration installed to $fdir/nvm.fish"
+  fi
 fi
 echo "=> nvm installed in $NVM_DIR. Open a new terminal or run: . \"$NVM_DIR/nvm.sh\""

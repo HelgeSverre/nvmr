@@ -225,7 +225,13 @@ fn run(cx: &mut Ctx, args: &[String]) -> i32 {
             }
         }
         "debug" => cmd_debug(cx),
-        "__auto" => cmd_auto(cx, rest),
+        "__auto" if matches!(rest, [mode] if matches!(mode.as_str(), "use" | "cd" | "install")) => {
+            cmd_auto(cx, rest)
+        }
+        "__auto" => {
+            eprint!("{HELP}");
+            127
+        }
         "__ls" => cmd_raw_ls(cx, rest),
         "exec-internal" => cmd_exec_internal(cx, rest),
         "__rcversion" => {
@@ -1086,6 +1092,10 @@ fn cmd_ls(cx: &mut Ctx, rest: &[String]) -> i32 {
     let no_alias = rest.iter().any(|a| a == "--no-alias");
     let pat = rest.iter().find(|a| !a.starts_with("--") && !a.is_empty());
     let cur = cx.st.ls_current(&env::var("PATH").unwrap_or_default());
+    if pat.is_some_and(|p| p == "current") && cur == "none" {
+        println!("->{:>13} *", "none");
+        return 0;
+    }
     let list: Vec<String> = match pat {
         Some(p) => {
             if no_alias {
@@ -1172,7 +1182,8 @@ fn cmd_ls(cx: &mut Ctx, rest: &[String]) -> i32 {
     }
     if list.is_empty() {
         let na = format!("{:>15}", "N/A");
-        println!("{na}{}", if pat.is_none() { " *" } else { "" });
+        let star = cur == "none" && cx.st.installed().is_empty();
+        println!("{na}{}", if star { " *" } else { "" });
         if pat.is_none() && !no_alias {
             list_aliases(cx, None);
         }
@@ -1372,8 +1383,10 @@ fn cmd_ls_remote(cx: &mut Ctx, rest: &[String]) -> i32 {
     }
 
     if sel.is_empty() {
-        let star =
-            cx.pal.is_none() && lts.is_none() && pat.as_deref().is_some_and(valid_versionish);
+        let star = cx.pal.is_none()
+            && lts.is_none()
+            && (pat.as_deref().is_some_and(valid_versionish)
+                || !remote::mirror_ok(&remote::mirror()));
         println!("{:>15}{}", "N/A", if star { " *" } else { "" });
         return 3;
     }

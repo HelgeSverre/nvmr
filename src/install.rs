@@ -72,7 +72,13 @@ pub fn cmd_install(cx: &mut Ctx, rest: &[String]) -> i32 {
                 }
                 set_default = true;
             }
-            "--save" | "-w" => save = true,
+            "--save" | "-w" => {
+                if save {
+                    eprintln!("--save and -w may only be provided once");
+                    return 6;
+                }
+                save = true;
+            }
             "--skip-default-packages" => skip_pkgs = true,
             "--no-progress" => passthru.push(a.clone()),
             "--offline" => passthru.push(a.clone()),

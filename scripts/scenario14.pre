@@ -1,0 +1,12 @@
+# Fixed remote index with a prerelease after the latest stable major.
+mkdir -p /tmp/nvmr-prerelease/node /tmp/nvmr-prerelease/iojs
+cat > /tmp/nvmr-prerelease/node/index.tab <<'EOF'
+version	date	files	npm	v8	uv	zlib	openssl	modules	lts	security
+v27.0.0-alpha.0.0.0	2026-11-01	linux-arm64	-	-	-	-	-	-	-	-
+v26.13.0	2026-10-01	linux-arm64	-	-	-	-	-	-	-	-
+v25.0.0	2025-10-01	linux-arm64	-	-	-	-	-	-	-	-
+EOF
+printf 'version\tdate\tfiles\tnpm\tv8\tuv\tzlib\topenssl\tmodules\n' > /tmp/nvmr-prerelease/iojs/index.tab
+python3 -m http.server 8114 --bind 127.0.0.1 -d /tmp/nvmr-prerelease >/dev/null 2>&1 & SRV_PID=$!
+sleep 1
+export NVM_NODEJS_ORG_MIRROR=http://127.0.0.1:8114/node NVM_IOJS_ORG_MIRROR=http://127.0.0.1:8114/iojs

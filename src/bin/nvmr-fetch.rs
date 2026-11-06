@@ -8,6 +8,31 @@ use std::fs::{self, File};
 use std::io::{Read, Write};
 use std::path::{Path, PathBuf};
 use std::process::exit;
+use std::sync::{Mutex, OnceLock};
+
+/// The extraction directory to remove when Ctrl-C arrives. The handler is installed only once:
+/// `ctrlc` does not replace an already-installed handler.
+static INTERRUPT_CLEANUP: OnceLock<Mutex<Option<PathBuf>>> = OnceLock::new();
+
+fn configure_interrupt_cleanup(path: Option<PathBuf>) {
+    let cleanup = INTERRUPT_CLEANUP.get_or_init(|| {
+        let cleanup = Mutex::new(None::<PathBuf>);
+        let _ = ctrlc::set_handler(|| {
+            if let Some(cleanup) = INTERRUPT_CLEANUP.get() {
+                if let Ok(path) = cleanup.lock() {
+                    if let Some(path) = path.as_ref() {
+                        let _ = fs::remove_dir_all(path);
+                    }
+                }
+            }
+            exit(130);
+        });
+        cleanup
+    });
+    if let Ok(mut cleanup) = cleanup.lock() {
+        *cleanup = path;
+    }
+}
 
 fn agent() -> ureq::Agent {
     ureq::Agent::new_with_config(
@@ -88,7 +113,8 @@ fn http_get(url: &str) -> Result<Vec<u8>, i32> {
 }
 
 fn download(url: &str, dest: &Path, progress: bool) -> Result<String, i32> {
-    let _ = ctrlc::set_handler(|| exit(130)); // partial tarball stays on disk for `Range:` resume
+    // A download keeps its partial tarball for `Range:` resume.
+    configure_interrupt_cleanup(None);
     let mut have = fs::metadata(dest).map_or(0, |m| m.len());
     let mut req = request(url);
     if have > 0 {
@@ -276,15 +302,26 @@ fn install(opts: &Install) -> i32 {
                 sanitize(nvm_dir, &tarball)
             );
             have_cache = true;
-        } else if sha_file(&tarball).ok().as_deref() == want.as_deref() && want.is_some() {
-            eprintln!(
-                "Checksums match! Using existing downloaded archive {}",
-                sanitize(nvm_dir, &tarball)
-            );
-            have_cache = true;
         } else {
-            eprintln!("Checksum check failed!\nRemoving the broken local cache...");
-            let _ = fs::remove_file(&tarball);
+            eprintln!("Computing checksum with sha256sum");
+            match (sha_file(&tarball).ok(), want.as_deref()) {
+                (Some(got), Some(want)) if got == want => {
+                    eprintln!(
+                        "Checksums match! Using existing downloaded archive {}",
+                        sanitize(nvm_dir, &tarball)
+                    );
+                    have_cache = true;
+                }
+                (Some(got), Some(want)) => {
+                    eprintln!("Checksums do not match: '{got}' found, '{want}' expected.");
+                    eprintln!("Checksum check failed!\nRemoving the broken local cache...");
+                    let _ = fs::remove_file(&tarball);
+                }
+                _ => {
+                    eprintln!("Checksum check failed!\nRemoving the broken local cache...");
+                    let _ = fs::remove_file(&tarball);
+                }
+            }
         }
     } else if offline {
         eprintln!("Offline: no cached archive found for {slug}");
@@ -310,19 +347,17 @@ fn install(opts: &Install) -> i32 {
         }
     }
     let files = cdir.join("files");
-    {
-        // Ctrl-C: drop the half-extracted tree, keep the (verified) tarball for next time.
-        let f = files.clone();
-        let _ = ctrlc::set_handler(move || {
-            let _ = fs::remove_dir_all(&f);
-            exit(130);
-        });
-    }
     let _ = fs::remove_dir_all(&files);
-    if fs::create_dir_all(&files).is_err() || extract(&tarball, &files).is_err() {
+    if fs::create_dir_all(&files).is_err() {
+        return 1;
+    }
+    // Ctrl-C: drop the half-extracted tree, keep the verified tarball for next time.
+    configure_interrupt_cleanup(Some(files.clone()));
+    if extract(&tarball, &files).is_err() {
         let _ = fs::remove_dir_all(&files);
         return 1;
     }
+    configure_interrupt_cleanup(None);
     let Some(vdir) = opts.dest else {
         return 0; // source build: the caller builds in `files/`
     };

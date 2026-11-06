@@ -1,0 +1,9 @@
+# PATH-like environment cases: fake installed versions, no network needed.
+rm -rf /tmp/nvmr-path
+mkdir -p /tmp/nvmr-path/versions/node/v20.1.0/{bin,share/man,lib/node_modules}
+mkdir -p /tmp/nvmr-path/versions/node/v22.2.0/{bin,share/man,lib/node_modules}
+for v in v20.1.0 v22.2.0; do
+  printf '#!/bin/sh\necho %s\n' "$v" > "/tmp/nvmr-path/versions/node/$v/bin/node"
+  chmod +x "/tmp/nvmr-path/versions/node/$v/bin/node"
+done
+export NVM_DIR=/tmp/nvmr-path

@@ -1,0 +1,12 @@
+# Edge-case LTS fields from index.tab: upstream ignores blanks and invalid codenames.
+mkdir -p /tmp/nvmr-remote15/node /tmp/nvmr-remote15/iojs
+cat > /tmp/nvmr-remote15/node/index.tab <<'EOF'
+version	date	files	npm	v8	uv	zlib	openssl	modules	lts	security
+v22.1.0	2026-01-01	linux-arm64	-	-	-	-	-	-		-
+v20.1.0	2026-01-01	linux-arm64	-	-	-	-	-	-	Bad Name	-
+v18.1.0	2026-01-01	linux-arm64	-	-	-	-	-	-	-	-
+EOF
+printf 'version\tdate\tfiles\tnpm\tv8\tuv\tzlib\topenssl\tmodules\n' > /tmp/nvmr-remote15/iojs/index.tab
+python3 -m http.server 8115 --bind 127.0.0.1 -d /tmp/nvmr-remote15 >/dev/null 2>&1 & SRV_PID=$!
+sleep 1
+export NVM_NODEJS_ORG_MIRROR=http://127.0.0.1:8115/node NVM_IOJS_ORG_MIRROR=http://127.0.0.1:8115/iojs

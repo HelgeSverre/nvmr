@@ -20,19 +20,77 @@ fn ge(v: Ver, a: u64, b: u64, c: u64) -> bool {
     v >= (a, b, c)
 }
 
-/// Ported 1:1 from `nvm_install_latest_npm` for node >= 1.1 (the 0.x npm1/npm2 hops are not exercised).
-pub fn plan(v: Ver) -> (Option<&'static str>, &'static str) {
+#[derive(Clone, Copy)]
+struct UpgradeStep {
+    message: &'static str,
+    package: Option<&'static str>,
+}
+
+impl UpgradeStep {
+    const fn install(message: &'static str, package: &'static str) -> Self {
+        Self {
+            message,
+            package: Some(package),
+        }
+    }
+
+    const fn note(message: &'static str) -> Self {
+        Self {
+            message,
+            package: None,
+        }
+    }
+}
+
+/// The upgrade sequence from upstream's `nvm_install_latest_npm`.
+fn plan(v: Ver, npm: Ver) -> Vec<UpgradeStep> {
+    let mut steps = vec![];
+    let is06 = ge(v, 0, 6, 0) && !ge(v, 0, 7, 0);
+    let is09 = ge(v, 0, 9, 0) && !ge(v, 0, 10, 0);
+
+    if !is06 && !is09 {
+        if ge(npm, 1, 0, 0) && !ge(npm, 2, 0, 0) {
+            steps.push(UpgradeStep::install(
+                "* `npm` v1.x needs to first jump to `npm` v1.4.28 to be able to upgrade further",
+                "npm@1.4.28",
+            ));
+        } else if ge(npm, 2, 0, 0) && !ge(npm, 3, 0, 0) {
+            steps.push(UpgradeStep::install(
+                "* `npm` v2.x needs to first jump to the latest v2 to be able to upgrade further",
+                "npm@2",
+            ));
+        }
+    }
+
+    if is06 {
+        steps.push(UpgradeStep::install(
+            "* `node` v0.6.x can only upgrade to `npm` v1.3.x",
+            "npm@1.3",
+        ));
+        steps.push(UpgradeStep::note(
+            "* node v0.6 and v0.9 are unable to upgrade further",
+        ));
+        return steps;
+    }
+    if is09 {
+        steps.push(UpgradeStep::note(
+            "* node v0.6 and v0.9 are unable to upgrade further",
+        ));
+        return steps;
+    }
     if !ge(v, 1, 1, 0) {
-        return (
-            Some("* `npm` v4.5.x is the last version that works on `node` versions < v1.1.0"),
+        steps.push(UpgradeStep::install(
+            "* `npm` v4.5.x is the last version that works on `node` versions < v1.1.0",
             "npm@4.5",
-        );
+        ));
+        return steps;
     }
     if !ge(v, 4, 0, 0) {
-        return (
-            Some("* `npm` v5 and higher do not work on `node` versions below v4.0.0"),
+        steps.push(UpgradeStep::install(
+            "* `npm` v5 and higher do not work on `node` versions below v4.0.0",
             "npm@4",
-        );
+        ));
+        return steps;
     }
     let is44 = !ge(v, 4, 5, 0);
     let is5 = !is44 && ge(v, 5, 0, 0);
@@ -56,36 +114,44 @@ pub fn plan(v: Ver) -> (Option<&'static str>, &'static str) {
     let is2017 = is205 && ge(v, 20, 17, 0);
     let is21 = is2017 && ge(v, 21, 0, 0);
     let is229 = is21 && ge(v, 22, 9, 0);
-    if is44 || (is5 && !ge(v, 5, 10, 0)) {
-        (Some("* `npm` `v5.3.x` is the last version that works on `node` 4.x versions below v4.4, or 5.x versions below v5.10, due to `Buffer.alloc`"), "npm@5.3")
+    let final_step = if is44 || (is5 && !ge(v, 5, 10, 0)) {
+        UpgradeStep::install("* `npm` `v5.3.x` is the last version that works on `node` 4.x versions below v4.4, or 5.x versions below v5.10, due to `Buffer.alloc`", "npm@5.3")
     } else if !is44 && !ge(v, 4, 7, 0) {
-        (
-            Some("* `npm` `v5.4.1` is the last version that works on `node` `v4.5` and `v4.6`"),
+        UpgradeStep::install(
+            "* `npm` `v5.4.1` is the last version that works on `node` `v4.5` and `v4.6`",
             "npm@5.4.1",
         )
     } else if !is6 {
-        (
-            Some("* `npm` `v5.x` is the last version that works on `node` below `v6.0.0`"),
+        UpgradeStep::install(
+            "* `npm` `v5.x` is the last version that works on `node` below `v6.0.0`",
             "npm@5",
         )
     } else if (is6 && !is62) || (is9 && !is93) {
-        (Some("* `npm` `v6.9` is the last version that works on `node` `v6.0.x`, `v6.1.x`, `v9.0.x`, `v9.1.x`, or `v9.2.x`"), "npm@6.9")
+        UpgradeStep::install("* `npm` `v6.9` is the last version that works on `node` `v6.0.x`, `v6.1.x`, `v9.0.x`, `v9.1.x`, or `v9.2.x`", "npm@6.9")
     } else if !is10 {
-        (
-            Some("* `npm` `v6.x` is the last version that works on `node` below `v10.0.0`"),
+        if !ge(npm, 4, 4, 4) {
+            steps.push(UpgradeStep::install(
+                "* `npm` `v4.4.4` or later is required to install npm v6.14.18",
+                "npm@4",
+            ));
+        }
+        UpgradeStep::install(
+            "* `npm` `v6.x` is the last version that works on `node` below `v10.0.0`",
             "npm@6",
         )
     } else if !is12 || (is13 && !is14) || (is15 && !is16) {
-        (Some("* `npm` `v7.x` is the last version that works on `node` `v13`, `v15`, below `v12.13`, or `v14.0` - `v14.15`"), "npm@7")
+        UpgradeStep::install("* `npm` `v7.x` is the last version that works on `node` `v13`, `v15`, below `v12.13`, or `v14.0` - `v14.15`", "npm@7")
     } else if (is12 && !is13) || (is14 && !is1417) || (is16 && !is16l) || (is17 && !is18) {
-        (Some("* `npm` `v8.6` is the last version that works on `node` `v12`, `v14.13` - `v14.16`, or `v16.0` - `v16.12`"), "npm@8.6")
+        UpgradeStep::install("* `npm` `v8.6` is the last version that works on `node` `v12`, `v14.13` - `v14.16`, or `v16.0` - `v16.12`", "npm@8.6")
     } else if !is1817 || (is19 && !is205) {
-        (Some("* `npm` `v9.x` is the last version that works on `node` `< v18.17`, `v19`, or `v20.0` - `v20.4`"), "npm@9")
+        UpgradeStep::install("* `npm` `v9.x` is the last version that works on `node` `< v18.17`, `v19`, or `v20.0` - `v20.4`", "npm@9")
     } else if !is2017 || (is21 && !is229) {
-        (Some("* `npm` `v10.x` is the last version that works on `node` `< v20.17`, `v21`, or `v22.0` - `v22.8`"), "npm@10")
+        UpgradeStep::install("* `npm` `v10.x` is the last version that works on `node` `< v20.17`, `v21`, or `v22.0` - `v22.8`", "npm@10")
     } else {
-        (Some("* Installing latest `npm`; if this does not work on your node version, please report a bug!"), "npm")
-    }
+        UpgradeStep::install("* Installing latest `npm`; if this does not work on your node version, please report a bug!", "npm")
+    };
+    steps.push(final_step);
+    steps
 }
 
 fn npm_version(bindir: Option<&Path>) -> Option<String> {
@@ -112,14 +178,16 @@ pub fn install_latest(node_version: &str, bindir: Option<&Path>) -> i32 {
     if debug {
         println!("Detected node version {node_version}, npm version v{npm}");
     }
-    let (msg, pkg) = plan(v);
-    if let Some(m) = msg {
-        println!("{m}");
-    }
-    if debug {
-        println!("npm install -g {pkg}");
-    } else {
-        let _ = npm_cmd(bindir).args(["install", "-g", pkg]).status();
+    let npm_ver = parse_ver(&npm).unwrap_or_default();
+    for step in plan(v, npm_ver) {
+        println!("{}", step.message);
+        if let Some(pkg) = step.package {
+            if debug {
+                println!("npm install -g {pkg}");
+            } else {
+                let _ = npm_cmd(bindir).args(["install", "-g", pkg]).status();
+            }
+        }
     }
     println!(
         "* npm upgraded to: v{}",

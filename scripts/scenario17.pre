@@ -1,0 +1,2 @@
+# Reuse the deterministic source-only mirror from scenario9 for option-only installs.
+. /src/scripts/scenario9.pre

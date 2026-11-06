@@ -1,0 +1,44 @@
+name: Build release bundles
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  linux:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: ubuntu-24.04
+            arch: x86_64
+          - runner: ubuntu-24.04-arm
+            arch: aarch64
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build dev image
+        run: docker build -t nvmr-dev docker
+      - name: Build static bundle
+        run: scripts/d.sh sh -c 'touch src/*.rs src/bin/*.rs && sh /src/scripts/bundle.sh'
+      - name: Smoke test installed bundle
+        run: |
+          docker run --rm -v "$PWD":/src:ro nvmr-dev sh -eu -c '
+            export HOME=/tmp/nvmr-release-smoke PROFILE=/dev/null
+            NVMR_BUNDLE=/src/dist/nvmr-linux-$(uname -m) sh /src/install.sh
+            . "$HOME/.nvm/nvm.sh" --no-use
+            nvm --version
+            nvm current
+          '
+      - name: Check bundle and checksum
+        run: |
+          test -s "dist/nvmr-linux-${{ matrix.arch }}.tar.gz"
+          sha256sum "dist/nvmr-linux-${{ matrix.arch }}.tar.gz" > "dist/nvmr-linux-${{ matrix.arch }}.tar.gz.sha256"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: nvmr-linux-${{ matrix.arch }}
+          path: |
+            dist/nvmr-linux-${{ matrix.arch }}.tar.gz
+            dist/nvmr-linux-${{ matrix.arch }}.tar.gz.sha256
