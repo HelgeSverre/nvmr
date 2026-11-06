@@ -116,7 +116,7 @@ docker build -t nvmr-dev docker
 scripts/verify.sh
 ```
 
-The gate runs Rust formatting, Clippy, unit tests, and 753 command comparisons against upstream nvm v0.40.8. It also checks color, bash/zsh/fish integration, read-only installs, interrupts, and portability. See [scripts/verify.sh](scripts/verify.sh) and the [benchmark harness](bench/bench.py) for the complete checks. Benchmark figures belong with their saved results under `bench/results/`.
+The gate runs Rust formatting, Clippy, unit tests, and 753 command comparisons against upstream nvm v0.40.8. It also checks color, bash/zsh/fish integration, read-only installs, interrupts, and portability. See [scripts/verify.sh](scripts/verify.sh) for the complete checks and [performance](docs/performance/README.md) for the pinned Docker comparison with nvm and fnm.
 
 ## License
 

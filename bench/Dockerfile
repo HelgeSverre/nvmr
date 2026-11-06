@@ -11,7 +11,7 @@ RUN printf 'deb [check-valid-until=no] http://snapshot.debian.org/archive/%s/%s 
       debian "$DEBIAN_SNAPSHOT" bookworm debian "$DEBIAN_SNAPSHOT" bookworm-updates debian-security "$DEBIAN_SNAPSHOT" bookworm-security \
       > /etc/apt/sources.list \
  && rm -f /etc/apt/sources.list.d/* \
- && apt-get -o Acquire::Retries=5 update && apt-get -y dist-upgrade && apt-get install -y --no-install-recommends ca-certificates curl git unzip xz-utils \
+ && apt-get -o Acquire::Retries=5 update && apt-get -y dist-upgrade && apt-get -o Acquire::Retries=5 install -y --no-install-recommends ca-certificates curl git unzip xz-utils \
  && rm -rf /var/lib/apt/lists/*
 WORKDIR /fetch
 RUN case "$TARGETARCH" in arm64) a=arm64; ha=aarch64; fz=fnm-arm64.zip ;; amd64) a=x64; ha=x86_64; fz=fnm-linux.zip ;; *) exit 1 ;; esac \
@@ -27,12 +27,17 @@ RUN case "$TARGETARCH" in arm64) a=arm64; ha=aarch64; fz=fnm-arm64.zip ;; amd64)
 
 FROM ${DEBIAN_IMAGE}
 ARG DEBIAN_SNAPSHOT
+ARG TARGETARCH
+# The snapshot CDN intermittently 504s on this archived file. Preseed apt's cache with
+# the same versioned Debian archive; apt still validates it against the pinned index.
+ADD https://deb.debian.org/debian/pool/main/e/elfutils/libdw1_0.188-2.1_${TARGETARCH}.deb /tmp/libdw1.deb
 RUN printf 'deb [check-valid-until=no] http://snapshot.debian.org/archive/%s/%s %s main\n' \
       debian "$DEBIAN_SNAPSHOT" bookworm debian "$DEBIAN_SNAPSHOT" bookworm-updates debian-security "$DEBIAN_SNAPSHOT" bookworm-security \
       > /etc/apt/sources.list \
  && rm -f /etc/apt/sources.list.d/* \
  && apt-get -o Acquire::Retries=5 update && apt-get -y dist-upgrade \
- && apt-get install -y --no-install-recommends bash zsh python3 procps strace time file curl xz-utils linux-perf \
+ && cp /tmp/libdw1.deb "/var/cache/apt/archives/libdw1_0.188-2.1_${TARGETARCH}.deb" \
+ && apt-get -o Acquire::Retries=5 install -y --no-install-recommends bash zsh python3 procps strace time file curl xz-utils linux-perf \
  && rm -rf /var/lib/apt/lists/*
 COPY --from=fetch /fetch/hyperfine /usr/local/bin/hyperfine
 COPY --from=fetch /fetch/fnm /opt/bench/fnm

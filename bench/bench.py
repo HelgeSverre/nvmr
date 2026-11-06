@@ -6,7 +6,7 @@ Every input is pinned in bench/pins.env; every run writes raw hyperfine JSON, th
 and a Markdown report. See AGENTS.md ("Benchmarking and profiling") for the rules.
 
   bench.py setup  --root R --nvm-src DIR --nvmr-src DIR --fnm BIN --dist DIR
-  bench.py run    --root R --out DIR [--rounds 3] [--quick] [--filter REGEX] [--seed N]
+  bench.py run    --root R --out DIR [--rounds 3] [--quick | --publish] [--filter REGEX] [--seed N]
   bench.py report DIR
   bench.py profile --root R --out DIR          (Linux: strace/perf; macOS: linkage and RSS)
 """
@@ -420,7 +420,7 @@ def environment(root: Path, a: argparse.Namespace) -> dict:
         "where": os.environ.get("BENCH_WHERE", "host"),
         "git": os.environ.get("BENCH_GIT", capture(["git", "-C", str(HERE.parent), "describe", "--always", "--dirty"])),
         "pins": p,
-        "seed": a.seed, "rounds": a.rounds, "quick": a.quick, "filter": a.filter,
+        "seed": a.seed, "rounds": a.rounds, "quick": a.quick, "publish": a.publish, "filter": a.filter,
         "platform": platform.platform(), "uname": capture(["uname", "-a"]), "cpu": cpu_model(),
         "ncpu": os.cpu_count(), "cgroup": cg,
         "versions": {
@@ -485,6 +485,8 @@ def run_env(root: Path) -> dict:
 
 
 def cmd_run(a: argparse.Namespace) -> None:
+    if a.quick and a.publish:
+        raise SystemExit("--quick and --publish cannot be combined")
     root = Path(a.root).resolve()
     out = Path(a.out).resolve()
     (out / "raw").mkdir(parents=True, exist_ok=True)
@@ -533,7 +535,8 @@ def cmd_run(a: argparse.Namespace) -> None:
                 if b.slow:
                     hf += ["--warmup", "1", "--min-runs", "3" if a.quick else "5", "--max-runs", "10" if a.quick else "20"]
                 else:
-                    hf += ["--warmup", "5" if a.quick else "10", "--min-runs", "20" if a.quick else "50",
+                    min_runs = "20" if a.quick else ("300" if a.publish else "50")
+                    hf += ["--warmup", "5" if a.quick else "10", "--min-runs", min_runs,
                            "--max-runs", "60" if a.quick else "300"]
                 if b.prepare:
                     hf += ["--prepare", b.prepare]
@@ -746,6 +749,7 @@ def main() -> None:
     r.add_argument("--out", required=True)
     r.add_argument("--rounds", type=int, default=3)
     r.add_argument("--quick", action="store_true")
+    r.add_argument("--publish", action="store_true", help="run 300 repetitions per round for millisecond-scale results")
     r.add_argument("--filter", default="")
     r.add_argument("--seed", type=int, default=20261022)
     r.add_argument("--bash", default="bash")

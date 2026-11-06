@@ -44,9 +44,15 @@ nvm() {
       }
     fi
   fi
-  NVM_EVAL_FILE="$__nvm_ef" NVM_SHELL="${NVM_SHELL:-$([ -n "${ZSH_VERSION-}" ] && echo zsh || echo bash)}" \
+  __nvm_shell=${NVM_SHELL-}
+  if [ -z "$__nvm_shell" ]; then
+    if [ -n "${ZSH_VERSION-}" ]; then __nvm_shell=zsh
+    else __nvm_shell=bash; fi
+  fi
+  NVM_EVAL_FILE="$__nvm_ef" NVM_SHELL="$__nvm_shell" \
     command "${NVMR_EXE:-$NVM_DIR/nvmr}" "$@"
   __nvm_rc=$?
+  unset __nvm_shell
   if [ -s "$__nvm_ef" ]; then . "$__nvm_ef"; : >"$__nvm_ef"; fi
   if [ -z "$__nvm_fast" ]; then command rm -f "$__nvm_ef"; fi
   return $__nvm_rc
