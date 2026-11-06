@@ -1,0 +1,586 @@
+{
+  "started": "2026-11-06T19:07:37+0100",
+  "where": "host Darwin arm64",
+  "git": "v0.1.0-7-g6a225a1-dirty",
+  "sha256": {
+    "bench.py": "09c0cec359587510f6651eaf2a73fa027026dcffc9939051acf6e7238f4dfdc5",
+    "nvmr": "6ab8d2bb3ea7f60980fcf5a2e144b8e2101109176d045b3d4fd93c30b39e56d8",
+    "nvm.sh": "702fe5b45bf084811a6f28045f608c19fec7e08ad88040cb477810ccea86ae7b"
+  },
+  "pins": {
+    "DEBIAN_IMAGE": "debian:bookworm-slim@sha256:7ff6ba31527b9e336162fa061746c366c4b2032f4d2cff2078bea43f78efe3f8",
+    "DEBIAN_SNAPSHOT": "20261020T000000Z",
+    "NVM_VERSION": "v0.40.8",
+    "NVM_COMMIT": "8db529c5350353f165e1e7f6abb6eb6909f7fd37",
+    "FNM_VERSION": "v1.39.0",
+    "FNM_SHA256_linux_arm64": "4eaff58b2c5bf30d0934027572dd0b5bbb60d2a1af309230b53662d4b1d45599",
+    "FNM_SHA256_linux_x64": "7807664f39d39fc518da1c35ba0181e4b3267603c4b1dedeb4b5fc6ae440a224",
+    "FNM_SHA256_darwin_arm64": "f046483e85c53b3278efe49a3620c8680f22efa58a8dabfd03eafc6b59b31a25",
+    "MISE_VERSION": "v2026.11.3",
+    "MISE_SHA256_linux_arm64": "a9a2a66bbbe87ea9cc849e1f006606ae2b34f3d3ba56a54d5cd5d64b6557d164",
+    "MISE_SHA256_linux_x64": "c2f7e814cb39f60b7f67a0ff36cb805e94128bf2dff09d175309d0f095b8cc3b",
+    "MISE_SHA256_darwin_arm64": "6d39119ab914c54ab865204dee9337c71b83a7ed1e730f663c2fc3453e38fe9c",
+    "PROTO_VERSION": "v0.63.2",
+    "PROTO_SHA256_linux_arm64": "5e56d307ab648cfe243d5e9bf968e7e5a1c736e92dac9c6c5925326c64f5ba50",
+    "PROTO_SHA256_linux_x64": "24df51fc98848abfcc27507a53c2ce005b4da783d4bf662717ae9a9d17432c9a",
+    "PROTO_SHA256_darwin_arm64": "d2bb0da3afd121baf516b2e8ed7f549b2849243db91bca0a57b398392fba5e41",
+    "PROTO_NODE_PLUGIN_SHA256": "c683af004620182bafdd9ab1af912da723646f7fac3d265b91073a6d225093cf",
+    "PROTO_SCHEMA_PLUGIN_SHA256": "759e583c6352a012a9ee189b21e67353db8788d0a00549d37e04154d64704212",
+    "HYPERFINE_VERSION": "v1.20.0",
+    "HYPERFINE_SHA256_linux_arm64": "90875cb1db7a1d797c311174d061728361e58fc70e3b62262a00635ac3b1997c",
+    "HYPERFINE_SHA256_linux_x64": "63ad53934062118f5b0be11785e0bb1603d4b91667d1921f2fd8df9a8712040a",
+    "NODE_A": "v22.22.3",
+    "NODE_B": "v20.20.2",
+    "NODE_A_SHA256_linux_arm64": "1c4a9933a5e45bc88f54f70b5f91232c127ec49f1a5989d23fb85824c7adf9b7",
+    "NODE_A_SHA256_linux_x64": "2e5d13569282d016861fae7c8f935e741693c269101a5bebcf761a5376d1f99f",
+    "NODE_A_SHA256_darwin_arm64": "753c1629e168cc788ccc46ab61e0b35549fce08c07f82fcd3bb0d41f7fb01e7b",
+    "NODE_B_SHA256_linux_arm64": "73093db209e4e9e09dd7d15a47aeaab1b74833830df03efa5f942a1122c5fa71",
+    "NODE_B_SHA256_linux_x64": "df770b2a6f130ed8627c9782c988fda9669fa23898329a61a871e32f965e007d",
+    "NODE_B_SHA256_darwin_arm64": "6375a1d4421bc04ab284ba89459df788a78c49c89e83c463d0eede47e2efc07b"
+  },
+  "seed": 20261022,
+  "rounds": 3,
+  "quick": false,
+  "publish": true,
+  "filter": "^(startup/bash/(bare|bare-node|nvmr-lazypath|nvmr-lazypath-autocd|fnm|fnm-recursive)|node-exec/bash/(bare-node|nvmr-lazypath-autocd|fnm)|cd-(switch|nochange)/bash/(nvmr-lazypath|fnm|fnm-recursive))$",
+  "platform": "macOS-15.6-arm64-arm-64bit-Mach-O",
+  "uname": "Darwin Helges-MacBook-Pro.local 24.6.0 Darwin Kernel Version 24.6.0: Mon Jul 14 11:30:30 PDT 2025; root:xnu-11417.140.69~1/RELEASE_ARM64_T6020 arm64",
+  "cpu": "Apple M2 Max",
+  "ncpu": 12,
+  "cgroup": {},
+  "versions": {
+    "hyperfine": "hyperfine 1.20.0",
+    "bash": "GNU bash, version 3.2.57(1)-release (arm64-apple-darwin24)",
+    "zsh": "zsh 5.9 (arm64-apple-darwin24.0)",
+    "fnm": "fnm 1.39.0",
+    "nvmr": "0.40.8",
+    "python": "3.14.7"
+  },
+  "load_before": [
+    12.81,
+    12.64,
+    12.02
+  ],
+  "ncpu_usable": 12,
+  "benchmarks": [
+    {
+      "id": "startup/bash/bare",
+      "group": "startup",
+      "tool": "bare",
+      "cmd": [
+        "/bin/bash",
+        "--noprofile",
+        "--rcfile",
+        "/Users/helge/code/nvm-fast/bench/.sandbox/host/root/rc/bash/bare/bashrc",
+        "-i",
+        "-c",
+        "exit"
+      ],
+      "ops": 0,
+      "baseline": "",
+      "check": "",
+      "check_cmd": [
+        "/bin/bash",
+        "--noprofile",
+        "--rcfile",
+        "/Users/helge/code/nvm-fast/bench/.sandbox/host/root/rc/bash/bare/bashrc",
+        "-i",
+        "-c",
+        "node -v 2>/dev/null; true"
+      ],
+      "prepare": "",
+      "slow": false
+    },
+    {
+      "id": "startup/bash/bare-node",
+      "group": "startup",
+      "tool": "bare",
+      "cmd": [
+        "/bin/bash",
+        "--noprofile",
+        "--rcfile",
+        "/Users/helge/code/nvm-fast/bench/.sandbox/host/root/rc/bash/bare-node/bashrc",
+        "-i",
+        "-c",
+        "exit"
+      ],
+      "ops": 0,
+      "baseline": "startup/bash/bare",
+      "check": "v22.22.3",
+      "check_cmd": [
+        "/bin/bash",
+        "--noprofile",
+        "--rcfile",
+        "/Users/helge/code/nvm-fast/bench/.sandbox/host/root/rc/bash/bare-node/bashrc",
+        "-i",
+        "-c",
+        "node -v 2>/dev/null; true"
+      ],
+      "prepare": "",
+      "slow": false
+    },
+    {
+      "id": "startup/bash/nvmr-lazypath",
+      "group": "startup",
+      "tool": "nvmr",
+      "cmd": [
+        "/bin/bash",
+        "--noprofile",
+        "--rcfile",
+        "/Users/helge/code/nvm-fast/bench/.sandbox/host/root/rc/bash/nvmr-lazypath/bashrc",
+        "-i",
+        "-c",
+        "exit"
+      ],
+      "ops": 0,
+      "baseline": "startup/bash/bare",
+      "check": "v22.22.3",
+      "check_cmd": [
+        "/bin/bash",
+        "--noprofile",
+        "--rcfile",
+        "/Users/helge/code/nvm-fast/bench/.sandbox/host/root/rc/bash/nvmr-lazypath/bashrc",
+        "-i",
+        "-c",
+        "node -v 2>/dev/null; true"
+      ],
+      "prepare": "",
+      "slow": false
+    },
+    {
+      "id": "startup/bash/nvmr-lazypath-autocd",
+      "group": "startup",
+      "tool": "nvmr",
+      "cmd": [
+        "/bin/bash",
+        "--noprofile",
+        "--rcfile",
+        "/Users/helge/code/nvm-fast/bench/.sandbox/host/root/rc/bash/nvmr-lazypath-autocd/bashrc",
+        "-i",
+        "-c",
+        "exit"
+      ],
+      "ops": 0,
+      "baseline": "startup/bash/bare",
+      "check": "v22.22.3",
+      "check_cmd": [
+        "/bin/bash",
+        "--noprofile",
+        "--rcfile",
+        "/Users/helge/code/nvm-fast/bench/.sandbox/host/root/rc/bash/nvmr-lazypath-autocd/bashrc",
+        "-i",
+        "-c",
+        "node -v 2>/dev/null; true"
+      ],
+      "prepare": "",
+      "slow": false
+    },
+    {
+      "id": "startup/bash/fnm",
+      "group": "startup",
+      "tool": "fnm",
+      "cmd": [
+        "/bin/bash",
+        "--noprofile",
+        "--rcfile",
+        "/Users/helge/code/nvm-fast/bench/.sandbox/host/root/rc/bash/fnm/bashrc",
+        "-i",
+        "-c",
+        "exit"
+      ],
+      "ops": 0,
+      "baseline": "startup/bash/bare",
+      "check": "v22.22.3",
+      "check_cmd": [
+        "/bin/bash",
+        "--noprofile",
+        "--rcfile",
+        "/Users/helge/code/nvm-fast/bench/.sandbox/host/root/rc/bash/fnm/bashrc",
+        "-i",
+        "-c",
+        "node -v 2>/dev/null; true"
+      ],
+      "prepare": "",
+      "slow": false
+    },
+    {
+      "id": "startup/bash/fnm-recursive",
+      "group": "startup",
+      "tool": "fnm",
+      "cmd": [
+        "/bin/bash",
+        "--noprofile",
+        "--rcfile",
+        "/Users/helge/code/nvm-fast/bench/.sandbox/host/root/rc/bash/fnm-recursive/bashrc",
+        "-i",
+        "-c",
+        "exit"
+      ],
+      "ops": 0,
+      "baseline": "startup/bash/bare",
+      "check": "v22.22.3",
+      "check_cmd": [
+        "/bin/bash",
+        "--noprofile",
+        "--rcfile",
+        "/Users/helge/code/nvm-fast/bench/.sandbox/host/root/rc/bash/fnm-recursive/bashrc",
+        "-i",
+        "-c",
+        "node -v 2>/dev/null; true"
+      ],
+      "prepare": "",
+      "slow": false
+    },
+    {
+      "id": "node-exec/bash/bare-node",
+      "group": "node-exec",
+      "tool": "bare",
+      "cmd": [
+        "/bin/bash",
+        "--noprofile",
+        "--rcfile",
+        "/Users/helge/code/nvm-fast/bench/.sandbox/host/root/rc/bash/bare-node/bashrc",
+        "-i",
+        "-c",
+        "i=0; while [ $i -lt 2 ]; do node -e 0 >/dev/null; i=$((i+1)); done"
+      ],
+      "ops": 2,
+      "baseline": "startup/bash/bare-node",
+      "check": "v22.22.3",
+      "check_cmd": [
+        "/bin/bash",
+        "--noprofile",
+        "--rcfile",
+        "/Users/helge/code/nvm-fast/bench/.sandbox/host/root/rc/bash/bare-node/bashrc",
+        "-i",
+        "-c",
+        "node -v"
+      ],
+      "prepare": "",
+      "slow": false
+    },
+    {
+      "id": "node-exec/bash/nvmr-lazypath-autocd",
+      "group": "node-exec",
+      "tool": "nvmr",
+      "cmd": [
+        "/bin/bash",
+        "--noprofile",
+        "--rcfile",
+        "/Users/helge/code/nvm-fast/bench/.sandbox/host/root/rc/bash/nvmr-lazypath-autocd/bashrc",
+        "-i",
+        "-c",
+        "i=0; while [ $i -lt 2 ]; do node -e 0 >/dev/null; i=$((i+1)); done"
+      ],
+      "ops": 2,
+      "baseline": "startup/bash/nvmr-lazypath-autocd",
+      "check": "v22.22.3",
+      "check_cmd": [
+        "/bin/bash",
+        "--noprofile",
+        "--rcfile",
+        "/Users/helge/code/nvm-fast/bench/.sandbox/host/root/rc/bash/nvmr-lazypath-autocd/bashrc",
+        "-i",
+        "-c",
+        "node -v"
+      ],
+      "prepare": "",
+      "slow": false
+    },
+    {
+      "id": "node-exec/bash/fnm",
+      "group": "node-exec",
+      "tool": "fnm",
+      "cmd": [
+        "/bin/bash",
+        "--noprofile",
+        "--rcfile",
+        "/Users/helge/code/nvm-fast/bench/.sandbox/host/root/rc/bash/fnm/bashrc",
+        "-i",
+        "-c",
+        "i=0; while [ $i -lt 2 ]; do node -e 0 >/dev/null; i=$((i+1)); done"
+      ],
+      "ops": 2,
+      "baseline": "startup/bash/fnm",
+      "check": "v22.22.3",
+      "check_cmd": [
+        "/bin/bash",
+        "--noprofile",
+        "--rcfile",
+        "/Users/helge/code/nvm-fast/bench/.sandbox/host/root/rc/bash/fnm/bashrc",
+        "-i",
+        "-c",
+        "node -v"
+      ],
+      "prepare": "",
+      "slow": false
+    },
+    {
+      "id": "cd-switch/bash/nvmr-lazypath",
+      "group": "cd-switch",
+      "tool": "nvmr",
+      "cmd": [
+        "/bin/bash",
+        "--noprofile",
+        "--rcfile",
+        "/Users/helge/code/nvm-fast/bench/.sandbox/host/root/rc/bash/nvmr-lazypath-autocd/bashrc",
+        "-i",
+        "-c",
+        "builtin cd /Users/helge/code/nvm-fast/bench/.sandbox/host/root/proj; i=0; while [ $i -lt 50 ]; do cd /Users/helge/code/nvm-fast/bench/.sandbox/host/root/proj/a >/dev/null; cd /Users/helge/code/nvm-fast/bench/.sandbox/host/root/proj/b >/dev/null; i=$((i+1)); done"
+      ],
+      "ops": 100,
+      "baseline": "startup/bash/nvmr-lazypath-autocd",
+      "check": "v20.20.2",
+      "check_cmd": [
+        "/bin/bash",
+        "--noprofile",
+        "--rcfile",
+        "/Users/helge/code/nvm-fast/bench/.sandbox/host/root/rc/bash/nvmr-lazypath-autocd/bashrc",
+        "-i",
+        "-c",
+        "cd /Users/helge/code/nvm-fast/bench/.sandbox/host/root/proj/a >/dev/null; node -v"
+      ],
+      "prepare": "",
+      "slow": false
+    },
+    {
+      "id": "cd-nochange/bash/nvmr-lazypath",
+      "group": "cd-nochange",
+      "tool": "nvmr",
+      "cmd": [
+        "/bin/bash",
+        "--noprofile",
+        "--rcfile",
+        "/Users/helge/code/nvm-fast/bench/.sandbox/host/root/rc/bash/nvmr-lazypath-autocd/bashrc",
+        "-i",
+        "-c",
+        "builtin cd /Users/helge/code/nvm-fast/bench/.sandbox/host/root/proj; i=0; while [ $i -lt 50 ]; do cd /Users/helge/code/nvm-fast/bench/.sandbox/host/root/proj/plain1; cd /Users/helge/code/nvm-fast/bench/.sandbox/host/root/proj/plain2; i=$((i+1)); done"
+      ],
+      "ops": 100,
+      "baseline": "startup/bash/nvmr-lazypath-autocd",
+      "check": "v22.22.3",
+      "check_cmd": [
+        "/bin/bash",
+        "--noprofile",
+        "--rcfile",
+        "/Users/helge/code/nvm-fast/bench/.sandbox/host/root/rc/bash/nvmr-lazypath-autocd/bashrc",
+        "-i",
+        "-c",
+        "cd /Users/helge/code/nvm-fast/bench/.sandbox/host/root/proj/plain1; node -v"
+      ],
+      "prepare": "",
+      "slow": false
+    },
+    {
+      "id": "cd-switch/bash/fnm",
+      "group": "cd-switch",
+      "tool": "fnm",
+      "cmd": [
+        "/bin/bash",
+        "--noprofile",
+        "--rcfile",
+        "/Users/helge/code/nvm-fast/bench/.sandbox/host/root/rc/bash/fnm/bashrc",
+        "-i",
+        "-c",
+        "builtin cd /Users/helge/code/nvm-fast/bench/.sandbox/host/root/proj; i=0; while [ $i -lt 50 ]; do cd /Users/helge/code/nvm-fast/bench/.sandbox/host/root/proj/a >/dev/null; cd /Users/helge/code/nvm-fast/bench/.sandbox/host/root/proj/b >/dev/null; i=$((i+1)); done"
+      ],
+      "ops": 100,
+      "baseline": "startup/bash/fnm",
+      "check": "v20.20.2",
+      "check_cmd": [
+        "/bin/bash",
+        "--noprofile",
+        "--rcfile",
+        "/Users/helge/code/nvm-fast/bench/.sandbox/host/root/rc/bash/fnm/bashrc",
+        "-i",
+        "-c",
+        "cd /Users/helge/code/nvm-fast/bench/.sandbox/host/root/proj/a >/dev/null; node -v"
+      ],
+      "prepare": "",
+      "slow": true
+    },
+    {
+      "id": "cd-nochange/bash/fnm",
+      "group": "cd-nochange",
+      "tool": "fnm",
+      "cmd": [
+        "/bin/bash",
+        "--noprofile",
+        "--rcfile",
+        "/Users/helge/code/nvm-fast/bench/.sandbox/host/root/rc/bash/fnm/bashrc",
+        "-i",
+        "-c",
+        "builtin cd /Users/helge/code/nvm-fast/bench/.sandbox/host/root/proj; i=0; while [ $i -lt 50 ]; do cd /Users/helge/code/nvm-fast/bench/.sandbox/host/root/proj/plain1; cd /Users/helge/code/nvm-fast/bench/.sandbox/host/root/proj/plain2; i=$((i+1)); done"
+      ],
+      "ops": 100,
+      "baseline": "startup/bash/fnm",
+      "check": "v22.22.3",
+      "check_cmd": [
+        "/bin/bash",
+        "--noprofile",
+        "--rcfile",
+        "/Users/helge/code/nvm-fast/bench/.sandbox/host/root/rc/bash/fnm/bashrc",
+        "-i",
+        "-c",
+        "cd /Users/helge/code/nvm-fast/bench/.sandbox/host/root/proj/plain1; node -v"
+      ],
+      "prepare": "",
+      "slow": false
+    },
+    {
+      "id": "cd-switch/bash/fnm-recursive",
+      "group": "cd-switch",
+      "tool": "fnm",
+      "cmd": [
+        "/bin/bash",
+        "--noprofile",
+        "--rcfile",
+        "/Users/helge/code/nvm-fast/bench/.sandbox/host/root/rc/bash/fnm-recursive/bashrc",
+        "-i",
+        "-c",
+        "builtin cd /Users/helge/code/nvm-fast/bench/.sandbox/host/root/proj; i=0; while [ $i -lt 50 ]; do cd /Users/helge/code/nvm-fast/bench/.sandbox/host/root/proj/a >/dev/null; cd /Users/helge/code/nvm-fast/bench/.sandbox/host/root/proj/b >/dev/null; i=$((i+1)); done"
+      ],
+      "ops": 100,
+      "baseline": "startup/bash/fnm-recursive",
+      "check": "v20.20.2",
+      "check_cmd": [
+        "/bin/bash",
+        "--noprofile",
+        "--rcfile",
+        "/Users/helge/code/nvm-fast/bench/.sandbox/host/root/rc/bash/fnm-recursive/bashrc",
+        "-i",
+        "-c",
+        "cd /Users/helge/code/nvm-fast/bench/.sandbox/host/root/proj/a/nested >/dev/null; node -v"
+      ],
+      "prepare": "",
+      "slow": true
+    },
+    {
+      "id": "cd-nochange/bash/fnm-recursive",
+      "group": "cd-nochange",
+      "tool": "fnm",
+      "cmd": [
+        "/bin/bash",
+        "--noprofile",
+        "--rcfile",
+        "/Users/helge/code/nvm-fast/bench/.sandbox/host/root/rc/bash/fnm-recursive/bashrc",
+        "-i",
+        "-c",
+        "builtin cd /Users/helge/code/nvm-fast/bench/.sandbox/host/root/proj; i=0; while [ $i -lt 50 ]; do cd /Users/helge/code/nvm-fast/bench/.sandbox/host/root/proj/plain1; cd /Users/helge/code/nvm-fast/bench/.sandbox/host/root/proj/plain2; i=$((i+1)); done"
+      ],
+      "ops": 100,
+      "baseline": "startup/bash/fnm-recursive",
+      "check": "v22.22.3",
+      "check_cmd": [
+        "/bin/bash",
+        "--noprofile",
+        "--rcfile",
+        "/Users/helge/code/nvm-fast/bench/.sandbox/host/root/rc/bash/fnm-recursive/bashrc",
+        "-i",
+        "-c",
+        "cd /Users/helge/code/nvm-fast/bench/.sandbox/host/root/proj/plain1; node -v"
+      ],
+      "prepare": "",
+      "slow": true
+    }
+  ],
+  "rounds_log": [
+    {
+      "round": 0,
+      "load_before": [
+        12.02,
+        12.48,
+        11.96
+      ],
+      "order": [
+        "node-exec/bash/nvmr-lazypath-autocd",
+        "cd-nochange/bash/fnm-recursive",
+        "cd-switch/bash/fnm-recursive",
+        "node-exec/bash/bare-node",
+        "cd-switch/bash/fnm",
+        "cd-nochange/bash/fnm",
+        "startup/bash/bare-node",
+        "node-exec/bash/fnm",
+        "startup/bash/nvmr-lazypath-autocd",
+        "startup/bash/bare",
+        "startup/bash/nvmr-lazypath",
+        "startup/bash/fnm",
+        "cd-switch/bash/nvmr-lazypath",
+        "startup/bash/fnm-recursive",
+        "cd-nochange/bash/nvmr-lazypath"
+      ],
+      "load_after": [
+        8.39,
+        10.86,
+        11.39
+      ]
+    },
+    {
+      "round": 1,
+      "load_before": [
+        8.39,
+        10.86,
+        11.39
+      ],
+      "order": [
+        "startup/bash/nvmr-lazypath",
+        "startup/bash/fnm-recursive",
+        "node-exec/bash/nvmr-lazypath-autocd",
+        "startup/bash/bare",
+        "cd-switch/bash/fnm-recursive",
+        "node-exec/bash/fnm",
+        "node-exec/bash/bare-node",
+        "cd-nochange/bash/fnm-recursive",
+        "startup/bash/bare-node",
+        "cd-switch/bash/nvmr-lazypath",
+        "cd-nochange/bash/fnm",
+        "cd-switch/bash/fnm",
+        "cd-nochange/bash/nvmr-lazypath",
+        "startup/bash/fnm",
+        "startup/bash/nvmr-lazypath-autocd"
+      ],
+      "load_after": [
+        6.64,
+        9.07,
+        10.55
+      ]
+    },
+    {
+      "round": 2,
+      "load_before": [
+        6.64,
+        9.07,
+        10.55
+      ],
+      "order": [
+        "cd-nochange/bash/nvmr-lazypath",
+        "node-exec/bash/fnm",
+        "startup/bash/nvmr-lazypath-autocd",
+        "startup/bash/fnm",
+        "cd-nochange/bash/fnm",
+        "node-exec/bash/bare-node",
+        "cd-nochange/bash/fnm-recursive",
+        "node-exec/bash/nvmr-lazypath-autocd",
+        "cd-switch/bash/fnm",
+        "cd-switch/bash/fnm-recursive",
+        "startup/bash/nvmr-lazypath",
+        "startup/bash/fnm-recursive",
+        "startup/bash/bare-node",
+        "cd-switch/bash/nvmr-lazypath",
+        "startup/bash/bare"
+      ],
+      "load_after": [
+        6.23,
+        7.55,
+        9.56
+      ]
+    }
+  ],
+  "finished": "2026-11-06T19:16:56+0100",
+  "load_after": [
+    6.23,
+    7.55,
+    9.56
+  ],
+  "noisy": true
+}

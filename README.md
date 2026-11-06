@@ -112,6 +112,11 @@ Set these before sourcing `nvm.sh`:
 | `NVM_LAZY_PATH=1` | With lazy mode, set `PATH` directly when the default alias names an installed exact version. |
 | `. "$NVM_DIR/nvm.sh" --no-use` | Load the POSIX integration without selecting a version. |
 
+For an exact default version, lazy path avoids a manager process at startup. The
+[pinned comparison](docs/performance/lazy-startup-2026-11-06.md) measures it both with and without
+the directory hook. It is opt-in because it defers part of eager `nvm use` setup and does not
+select an initial project's `.nvmrc` over the exact default.
+
 ## Compatibility
 
 The [behavioral specification](nvm-compat-spec.md) records the upstream contract, intentional quirks, and [known differences](nvm-compat-spec.md#15-implementation-status-2026-11-06). nvmr is an independent implementation, not a copy of nvm's shell internals.

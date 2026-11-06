@@ -122,6 +122,8 @@ def cmd_setup(a: argparse.Namespace) -> None:
         nvm_state(f"nvm{sfx}", Path(a.nvm_src), many)
         nvm_state(f"nvmr{sfx}", Path(a.nvmr_src), many)
         fnm_state(f"fnm{sfx}", many)
+    nvm_state("nvmr-lazypath", Path(a.nvmr_src), False)
+    (root / "nvmr-lazypath/alias/default").write_text(p["NODE_A"] + "\n")
 
     bindir = root / "bin"
     bindir.mkdir()
@@ -237,7 +239,7 @@ NATIVE_CD = {
 }
 
 # config name -> (state dir, init snippet builder)
-BASE_CONFIGS = ("bare", "bare-node", "nvm", "nvm-nouse", "nvm-cd", "nvmr", "nvmr-nouse", "nvmr-cd", "nvmr-autocd", "fnm", "fnm-recursive",
+BASE_CONFIGS = ("bare", "bare-node", "nvm", "nvm-nouse", "nvm-cd", "nvmr", "nvmr-nouse", "nvmr-cd", "nvmr-autocd", "nvmr-lazypath", "nvmr-lazypath-autocd", "fnm", "fnm-recursive",
                 "nvm-many", "nvmr-many", "fnm-many")
 
 
@@ -257,7 +259,7 @@ def init_lines(cfg: str, shell: str, root: Path) -> str:
         return f'export PATH="{root}/nvmr/versions/node/{pins()["NODE_A"]}/bin:$PATH"\n'
     base, _, variant = cfg.partition("-")
     many = variant == "many"
-    state = root / (base + ("-many" if many else ""))
+    state = root / ("nvmr-lazypath" if variant.startswith("lazypath") else base + ("-many" if many else ""))
     if base == "fnm":
         recursive = " --version-file-strategy recursive" if variant == "recursive" else ""
         return (f'export FNM_DIR="{state}"\nexport PATH="{root}/bin:$PATH"\n'
@@ -273,10 +275,13 @@ def init_lines(cfg: str, shell: str, root: Path) -> str:
         if variant == "shim":
             return lines + f'export PATH="{root}/proto/shims:$PATH"\n'
         return lines + f'eval "$(proto activate {shell} --no-shim --config-mode all)"\n'
-    lines = f'export NVM_DIR="{state}"\n. "$NVM_DIR/nvm.sh"' + (" --no-use" if variant == "nouse" else "") + "\n"
+    lines = f'export NVM_DIR="{state}"\n'
+    if variant.startswith("lazypath"):
+        lines += "export NVM_LAZY=1 NVM_LAZY_PATH=1\n"
+    lines += '. "$NVM_DIR/nvm.sh"' + (" --no-use" if variant == "nouse" else "") + "\n"
     if variant == "cd":
         lines += BASH_CDNVM if shell == "bash" else ZSH_LOAD_NVMRC
-    elif variant == "autocd":
+    elif variant in ("autocd", "lazypath-autocd"):
         lines += NATIVE_CD[shell]
     return lines
 
@@ -332,7 +337,7 @@ def matrix(root: Path, p: dict[str, str], quick: bool, mirror: str) -> list[Benc
 
     # 1. Shell startup with each tool's documented init (overhead = config - bare).
     for s in shells:
-        startup_cfgs = ["bare", "bare-node", "nvm", "nvm-nouse", "nvm-cd", "nvmr", "nvmr-nouse", "nvmr-cd", "nvmr-autocd", "fnm", "fnm-recursive"]
+        startup_cfgs = ["bare", "bare-node", "nvm", "nvm-nouse", "nvm-cd", "nvmr", "nvmr-nouse", "nvmr-cd", "nvmr-autocd", "nvmr-lazypath", "nvmr-lazypath-autocd", "fnm", "fnm-recursive"]
         if (root / "bin/mise").exists():
             startup_cfgs.append("mise")
         if (root / "bin/proto").exists():
@@ -403,7 +408,7 @@ def matrix(root: Path, p: dict[str, str], quick: bool, mirror: str) -> list[Benc
                              check="18.100.0", check_cmd=shell_cmd(s, "mise-many", root, "mise ls node")))
 
         # Executing the same pinned Node binary reveals shim overhead; no manager command is in the loop.
-        exec_cfgs = ["bare-node", "nvmr", "fnm"]
+        exec_cfgs = ["bare-node", "nvmr", "nvmr-lazypath", "nvmr-lazypath-autocd", "fnm"]
         if (root / "bin/mise").exists():
             exec_cfgs.append("mise")
         if (root / "bin/proto").exists():
@@ -418,7 +423,7 @@ def matrix(root: Path, p: dict[str, str], quick: bool, mirror: str) -> list[Benc
     #    and between directories without a version file (2 no-op hooks per iteration).
     cd_cfgs = {  # label -> (config, iterations for cd-switch, iterations for cd-nochange)
         "nvm": ("nvm-cd", 2, 10), "nvmr": ("nvmr-cd", 10, 20),
-        "nvmr-native": ("nvmr-autocd", 25, 25), "fnm": ("fnm", 25, 25),
+        "nvmr-native": ("nvmr-autocd", 25, 25), "nvmr-lazypath": ("nvmr-lazypath-autocd", 25, 25), "fnm": ("fnm", 25, 25),
         "fnm-recursive": ("fnm-recursive", 25, 25)}
     if (root / "bin/mise").exists():
         cd_cfgs["mise"] = ("mise", 25, 25)

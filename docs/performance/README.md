@@ -3,6 +3,9 @@
 See [other Node version managers](competitors.md) for the expanded mise/proto comparison and
 the limits of comparing tools with different version-selection behavior.
 
+The [exact-default lazy startup](lazy-startup-2026-11-06.md) measures nvmr's existing opt-in
+startup mode against fnm in Docker and an isolated macOS sandbox.
+
 See the [listing and directory-hook optimization follow-up](optimization-2026-11-06.md) for
 controlled before/after Docker and macOS runs. The measurements below describe the original
 implementation before that optimization.
