@@ -36,6 +36,7 @@ jobs:
       - name: Check bundle and checksum
         run: |
           test -s "dist/nvmr-linux-${{ matrix.arch }}.tar.gz"
+          sudo chown -R "$(id -u):$(id -g)" dist
           sha256sum "dist/nvmr-linux-${{ matrix.arch }}.tar.gz" > "dist/nvmr-linux-${{ matrix.arch }}.tar.gz.sha256"
       - uses: actions/upload-artifact@v6
         with:
