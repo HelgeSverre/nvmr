@@ -89,5 +89,12 @@ The fnm default is fastest when the current directory has no version file becaus
 hook skips the resolver. That speed comes with a different rule for parent `.nvmrc` files.
 With parent lookup enabled, fnm runs its resolver on each directory change; nvmr's shell hook
 handles the common no-change case without starting its binary. The switch row remains too
-variable to identify a reliable winner. A second focused rerun was interrupted by laptop sleep
-and is excluded from the saved comparison.
+variable to identify a reliable winner.
+
+An [uninterrupted focused rerun](../../bench/results/20261106-173929-docker-aarch64/report.md)
+([metadata](../../bench/results/20261106-173929-docker-aarch64/meta.json)) on battery at the
+user's request observed 0.01 ms for fnm local, 0.07 ms for nvmr, and 0.35 ms for fnm recursive
+on the no-version-file case. These are again minima from three rounds of 300 runs; round spread
+remained above 10% despite load staying below the threshold. The benchmark cases and pins did
+not change, but the harness's report text did, so the runs are presented separately rather than
+combining their distributions. An intervening rerun was interrupted by laptop sleep and excluded.
