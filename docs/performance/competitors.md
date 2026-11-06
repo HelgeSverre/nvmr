@@ -9,9 +9,16 @@ Listing cases use 102 installed versions. The Docker container has no network du
 | Tool | Shell setup measured | Project version behavior | Fairly comparable cases |
 | --- | --- | --- | --- |
 | nvm / nvmr | Source `nvm.sh`; optional identical README auto-switch recipe | `.nvmrc` | startup, `use`, `current`, `ls`, `cd`, Node execution |
-| fnm | `eval "$(fnm env --use-on-cd --shell …)"` | `.nvmrc` | startup, `use`, `current`, `ls`, `cd`, Node execution |
+| fnm | `eval "$(fnm env --use-on-cd --shell …)"` | `.nvmrc` in the current directory by default; parent lookup is opt-in | startup, `use`, `current`, `ls`, `cd`, Node execution |
 | mise | `eval "$(mise activate …)"`; enable documented idiomatic Node version files | `.nvmrc` with that setting | startup, installed listing, `cd`, Node execution |
 | proto | `eval "$(proto activate … --no-shim --config-mode all)"` or documented shims | `.prototools`, with `.nvmrc` detection by shims | startup and Node execution |
+
+Fnm defaults to its [`local` version-file strategy](https://github.com/Schniz/fnm/blob/v1.39.0/docs/commands.md),
+which checks only the current directory. Nvm and nvmr search parent directories. The harness
+also includes fnm's documented `recursive` strategy so this semantic difference can be measured
+explicitly. [Fnm's Bash hook](https://github.com/Schniz/fnm/blob/v1.39.0/src/shell/bash.rs)
+skips `fnm use` in local mode when the current directory has no version file; recursive mode
+calls it on each `cd`.
 
 `proto activate bash` uses a prompt hook. A noninteractive Bash `cd` loop does not exercise its
 version switch, so the harness does not label one as a comparable `cd` result. Its activation and
@@ -40,7 +47,7 @@ threshold. Many individual cases had more than 10% spread between rounds, so the
 uses **minimum observed per-operation times**, in milliseconds, and does not treat close values
 as a ranking. The full report includes every run count, median, MAD, and round spread.
 
-| Bash operation | nvmr | fnm | mise | proto activation | proto shim |
+| Bash operation | nvmr | fnm (local) | mise | proto activation | proto shim |
 | --- | ---: | ---: | ---: | ---: | ---: |
 | Shell startup, configured mode | 1.08 | 0.46 | 5.46 | 28.68 | ≈0¹ |
 | List 102 installed versions | 0.43 | 0.42 | 4.33 | — | — |
@@ -56,10 +63,31 @@ Mise's `cd` cases crossed the harness's slow-case threshold and therefore receiv
 in total rather than 900; their full run counts are in the report.
 
 Nvmr and fnm are close on listing. Startup with the directory hook favors fnm in this run, but
-nvmr's startup varied substantially between rounds, so its typical gap is unresolved. Fnm's no-change directory hook
+nvmr's startup varied substantially between rounds, so its typical gap is unresolved. Fnm's default local no-change directory hook
 has a clear lower minimum; nvmr still checks `.nvmrc` ancestry and default reversion. Mise's
 activation, listing, and directory hook are substantially slower in this workload. Proto's
 activation has a large startup cost, while its shim makes each short Node invocation costly.
 These are specific Docker workflows, not an overall quality ranking. A faster nvmr no-change
 hook would need to preserve parent `.nvmrc` detection and changes made to default aliases or
 installed versions between directory changes.
+
+## Parent `.nvmrc` lookup
+
+The [focused Docker run](../../bench/results/20261106-164223-docker-aarch64/report.md)
+([metadata](../../bench/results/20261106-164223-docker-aarch64/meta.json)) adds fnm with
+`--version-file-strategy recursive` and verifies that it selects Node from a parent `.nvmrc`
+before timing. These are minimum observed per-operation times from three shuffled rounds,
+900 runs per case. The run stayed below the load threshold, but every directory-change row had
+more than 10% round spread, so the minima should not be read as typical latency.
+
+| Bash directory change | nvmr native hook | fnm local default | fnm recursive |
+| --- | ---: | ---: | ---: |
+| Switch between `.nvmrc` projects | 0.74 ms | 0.38 ms | 0.41 ms |
+| No version file in directory tree | 0.08 ms | 0.01 ms | 0.53 ms |
+
+The fnm default is fastest when the current directory has no version file because its shell
+hook skips the resolver. That speed comes with a different rule for parent `.nvmrc` files.
+With parent lookup enabled, fnm runs its resolver on each directory change; nvmr's shell hook
+handles the common no-change case without starting its binary. The switch row remains too
+variable to identify a reliable winner. A second focused rerun was interrupted by laptop sleep
+and is excluded from the saved comparison.

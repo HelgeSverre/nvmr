@@ -159,6 +159,7 @@ def cmd_setup(a: argparse.Namespace) -> None:
         (proj / name / ".nvmrc").write_text(content + "\n")
     for name in ("plain1", "plain2"):
         (proj / name).mkdir(parents=True)
+    (proj / "a/nested").mkdir()
     for name, key in (("a", "NODE_B"), ("b", "NODE_A")):
         (proj / name / ".prototools").write_text(f'node = "{p[key].lstrip("v")}"\n')
 
@@ -236,7 +237,7 @@ NATIVE_CD = {
 }
 
 # config name -> (state dir, init snippet builder)
-BASE_CONFIGS = ("bare", "bare-node", "nvm", "nvm-nouse", "nvm-cd", "nvmr", "nvmr-nouse", "nvmr-cd", "nvmr-autocd", "fnm",
+BASE_CONFIGS = ("bare", "bare-node", "nvm", "nvm-nouse", "nvm-cd", "nvmr", "nvmr-nouse", "nvmr-cd", "nvmr-autocd", "fnm", "fnm-recursive",
                 "nvm-many", "nvmr-many", "fnm-many")
 
 
@@ -258,8 +259,9 @@ def init_lines(cfg: str, shell: str, root: Path) -> str:
     many = variant == "many"
     state = root / (base + ("-many" if many else ""))
     if base == "fnm":
+        recursive = " --version-file-strategy recursive" if variant == "recursive" else ""
         return (f'export FNM_DIR="{state}"\nexport PATH="{root}/bin:$PATH"\n'
-                f'eval "$(fnm env --use-on-cd --shell {shell})"\n')
+                f'eval "$(fnm env --use-on-cd --shell {shell}{recursive})"\n')
     if base == "mise":
         return (f'export MISE_DATA_DIR="{state}" MISE_CONFIG_DIR="{root}/mise-config" '
                 f'MISE_CACHE_DIR="{state}/cache" MISE_STATE_DIR="{state}/state" '
@@ -330,7 +332,7 @@ def matrix(root: Path, p: dict[str, str], quick: bool, mirror: str) -> list[Benc
 
     # 1. Shell startup with each tool's documented init (overhead = config - bare).
     for s in shells:
-        startup_cfgs = ["bare", "bare-node", "nvm", "nvm-nouse", "nvm-cd", "nvmr", "nvmr-nouse", "nvmr-cd", "nvmr-autocd", "fnm"]
+        startup_cfgs = ["bare", "bare-node", "nvm", "nvm-nouse", "nvm-cd", "nvmr", "nvmr-nouse", "nvmr-cd", "nvmr-autocd", "fnm", "fnm-recursive"]
         if (root / "bin/mise").exists():
             startup_cfgs.append("mise")
         if (root / "bin/proto").exists():
@@ -416,7 +418,8 @@ def matrix(root: Path, p: dict[str, str], quick: bool, mirror: str) -> list[Benc
     #    and between directories without a version file (2 no-op hooks per iteration).
     cd_cfgs = {  # label -> (config, iterations for cd-switch, iterations for cd-nochange)
         "nvm": ("nvm-cd", 2, 10), "nvmr": ("nvmr-cd", 10, 20),
-        "nvmr-native": ("nvmr-autocd", 25, 25), "fnm": ("fnm", 25, 25)}
+        "nvmr-native": ("nvmr-autocd", 25, 25), "fnm": ("fnm", 25, 25),
+        "fnm-recursive": ("fnm-recursive", 25, 25)}
     if (root / "bin/mise").exists():
         cd_cfgs["mise"] = ("mise", 25, 25)
     for s in shells:
@@ -428,7 +431,8 @@ def matrix(root: Path, p: dict[str, str], quick: bool, mirror: str) -> list[Benc
             out.append(Bench(f"cd-switch/{s}/{label}", "cd-switch", tool,
                              shell_cmd(s, cfg, root, pre + loop(n, f"cd {proj}/a >/dev/null; cd {proj}/b >/dev/null")),
                              ops=2 * n, baseline=f"startup/{s}/{cfg}",
-                             check=B, check_cmd=shell_cmd(s, cfg, root, f"cd {proj}/a >/dev/null; node -v")))
+                             check=B, check_cmd=shell_cmd(s, cfg, root,
+                                                          f"cd {proj}/a{'/nested' if label == 'fnm-recursive' else ''} >/dev/null; node -v")))
             n = n_same * scale
             out.append(Bench(f"cd-nochange/{s}/{label}", "cd-nochange", tool,
                              shell_cmd(s, cfg, root, pre + loop(n, f"cd {proj}/plain1; cd {proj}/plain2")),
@@ -740,7 +744,8 @@ def report(out: Path) -> None:
     by = lambda g: [i for i, b in benches.items() if b["group"] == g]
     table("Shell startup overhead (config minus bare shell)", by("startup"), True,
           "`nvm-cd`/`nvmr-cd` add upstream's README auto-switch recipe; `nvmr-autocd` uses nvmr's one-process "
-          "hook; `fnm` is `fnm env --use-on-cd`; `mise` uses `mise activate` with documented `.nvmrc` support; "
+          "hook; `fnm` uses the default local `fnm env --use-on-cd`; `fnm-recursive` enables parent lookup; "
+          "`mise` uses `mise activate` with documented `.nvmrc` support; "
           "`proto-activate` uses `proto activate --no-shim --config-mode all`; `proto-shim` adds its shim directory.")
     for g, title in (("use", "`use` (switch between two installed versions)"), ("current", "`current`"),
                      ("version", "`version <major>` (resolution)"), ("ls-many", "`ls` with 102 versions installed"),
@@ -792,6 +797,8 @@ def cmd_profile(a: argparse.Namespace) -> None:
                                                f"cd {root}/proj/plain1; cd {root}/proj/plain2"),
         "fnm: two no-change cds": shell_cmd("bash", "fnm", root,
                                              f"cd {root}/proj/plain1; cd {root}/proj/plain2"),
+        "fnm recursive: two no-change cds": shell_cmd("bash", "fnm-recursive", root,
+                                                       f"cd {root}/proj/plain1; cd {root}/proj/plain2"),
         "bare bash": shell_cmd("bash", "bare", root, "exit"),
     }
     if (root / "bin/mise").exists():
