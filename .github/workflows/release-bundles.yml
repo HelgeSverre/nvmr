@@ -44,3 +44,40 @@ jobs:
           path: |
             dist/nvmr-linux-${{ matrix.arch }}.tar.gz
             dist/nvmr-linux-${{ matrix.arch }}.tar.gz.sha256
+
+  macos:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: macos-15
+            arch: aarch64
+          - runner: macos-15-intel
+            arch: x86_64
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@v5
+      - name: Build native bundle
+        run: |
+          cargo build --release --locked
+          bundle="dist/nvmr-darwin-${{ matrix.arch }}"
+          mkdir -p "$bundle"
+          cp target/release/nvmr target/release/nvmr-fetch \
+            nvm.sh nvm.fish nvm-exec bash_completion "$bundle/"
+          tar -czf "$bundle.tar.gz" -C "$bundle" .
+      - name: Smoke test installed bundle
+        run: |
+          export HOME="$RUNNER_TEMP/nvmr-release-smoke"
+          export NVM_DIR="$HOME/.nvm" PROFILE=/dev/null
+          NVMR_BUNDLE="dist/nvmr-darwin-${{ matrix.arch }}" sh install.sh
+          bash -c '. "$NVM_DIR/nvm.sh" --no-use; nvm --version; nvm current'
+      - name: Check bundle and checksum
+        run: |
+          test -s "dist/nvmr-darwin-${{ matrix.arch }}.tar.gz"
+          shasum -a 256 "dist/nvmr-darwin-${{ matrix.arch }}.tar.gz" > "dist/nvmr-darwin-${{ matrix.arch }}.tar.gz.sha256"
+      - uses: actions/upload-artifact@v6
+        with:
+          name: nvmr-darwin-${{ matrix.arch }}
+          path: |
+            dist/nvmr-darwin-${{ matrix.arch }}.tar.gz
+            dist/nvmr-darwin-${{ matrix.arch }}.tar.gz.sha256

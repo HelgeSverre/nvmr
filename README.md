@@ -1,167 +1,123 @@
-<!-- Hallmark · pre-emit critique: P5 H5 E4 S5 R5 V4 -->
-![nvmr — Switch Node. Keep your flow.](website/assets/brand/readme-banner.svg)
-
 # nvmr
 
-**A native Node.js version manager, written in Rust.**
+[![Release](https://img.shields.io/github/v/release/HelgeSverre/nvmr?style=flat-square)](https://github.com/HelgeSverre/nvmr/releases)
+[![Release bundles](https://github.com/HelgeSverre/nvmr/actions/workflows/release-bundles.yml/badge.svg)](https://github.com/HelgeSverre/nvmr/actions/workflows/release-bundles.yml)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue?style=flat-square)](LICENSE)
 
-Keep your nvm commands, installed versions, aliases, and `.nvmrc` files. nvmr runs the version-management logic in a native process, with a thin shell function to update your environment.
+A native Node.js version manager written in Rust. It keeps the `nvm` command, your installed versions and aliases, and your `.nvmrc` files. A small shell function applies environment changes from the native binary to your current shell.
 
-[Install](#install) · [Quick start](#quick-start) · [Compatibility](#compatibility) · [Benchmarks](#benchmarks) · [One-page website](website/index.html) · [Brand guide](website/BRAND.md)
+**Experimental.** nvmr targets [nvm v0.40.8](https://github.com/nvm-sh/nvm/tree/v0.40.8). Linux is checked against upstream in Docker. macOS bundles receive an install smoke test, but the full parity suite has not run on macOS. See [compatibility](#compatibility) before replacing an existing nvm setup.
 
-> **Project name: `nvmr`. Shell command: `nvm`.** The existing command name keeps scripts and shell integrations compatible. Prefer the branded command? Add `alias nvmr='nvm'` after loading nvm in your profile.
+## Installation
 
-## Install
-
-**Linux, prebuilt.** From a checkout on Linux x86_64 or arm64:
-
-```sh
-NVMR_URL=https://github.com/HelgeSverre/nvmr/releases/download/v0.1.0 sh install.sh
-```
-
-**Linux, from source.** Run these commands from a checkout on a Linux host with Docker running. The bundle is built for the container’s architecture. macOS is a target but has not yet been built or tested.
+### Homebrew
 
 ```sh
-docker build -t nvmr-dev docker
-scripts/d.sh sh /src/scripts/bundle.sh
-
-NVMR_BUNDLE="dist/nvmr-linux-$(docker run --rm nvmr-dev uname -m)" sh install.sh
+brew install HelgeSverre/tap/nvmr
 ```
 
-Open a new terminal. For a default installation at `~/.nvm`, you can also load the integration in the current bash/zsh session:
+Homebrew installs the binaries and shell files without editing your profile. Add the following to `~/.zshrc` or `~/.bashrc`, replacing `/opt/homebrew` with the output of `brew --prefix` on your machine:
 
 ```sh
 export NVM_DIR="$HOME/.nvm"
+export NVMR_EXE="/opt/homebrew/opt/nvmr/bin/nvmr"
+. "/opt/homebrew/opt/nvmr/share/nvmr/nvm.sh"
+```
+
+For fish, put this in `~/.config/fish/config.fish` with the same prefix adjustment:
+
+```fish
+set -gx NVM_DIR $HOME/.nvm
+set -gx NVMR_EXE /opt/homebrew/opt/nvmr/bin/nvmr
+source /opt/homebrew/opt/nvmr/share/nvmr/nvm.fish
+```
+
+The `opt/nvmr` symlink follows Homebrew upgrades. Set a different `NVM_DIR` in these lines if you already use one.
+
+### Release bundle
+
+Release bundles cover macOS and Linux on arm64 and x86_64. Download the installer from the tagged release, then point it at that release's bundles:
+
+```sh
+curl -fsSLO https://raw.githubusercontent.com/HelgeSverre/nvmr/v0.1.0/install.sh
+NVMR_URL=https://github.com/HelgeSverre/nvmr/releases/download/v0.1.0 sh install.sh
+```
+
+The installer chooses `$XDG_CONFIG_HOME/nvm` when XDG is set, otherwise `~/.nvm`. It adds the shell startup lines to a detected profile and installs fish integration when fish is available. Open a new shell, or load bash/zsh immediately:
+
+```sh
+export NVM_DIR="$HOME/.nvm" # Use the directory printed by the installer if different.
 . "$NVM_DIR/nvm.sh"
 ```
 
-If you set `NVM_DIR` or `XDG_CONFIG_HOME`, use the installation directory printed by the installer instead.
+An existing nvm installation shares its Node versions and aliases with nvmr. The installer replaces the integration files in `NVM_DIR`; keep a copy of them if you want an easy rollback. Set `PROFILE=/dev/null` to skip POSIX profile edits. See [install.sh](install.sh) for `NVMR_BUNDLE`, `NVMR_URL`, and other options.
 
-The installer copies `nvm.sh`, `nvmr`, `nvmr-fetch`, `nvm-exec`, `bash_completion`, and `nvm.fish` into `$NVM_DIR`. Existing Node versions and aliases are shared with upstream nvm. Profile lines are added when needed; fish integration is installed into `conf.d` when fish is available.
+### Build a Linux bundle from source
 
-The installer replaces the integration files in that directory. Keep a copy of your previous integration files if you want an easy rollback.
-
-<details>
-<summary>Installer options and existing bundles</summary>
-
-
-| Option | Purpose |
-| --- | --- |
-| `NVMR_BUNDLE` | Install from a local directory containing the six bundle files. |
-| `NVMR_URL` | Download `nvmr-<os>-<arch>.tar.gz` from a base URL you provide. |
-| `NVM_DIR` | Choose the installation directory; defaults to `$XDG_CONFIG_HOME/nvm` when set, otherwise `~/.nvm`. |
-| `PROFILE` | Choose a shell profile; `PROFILE=/dev/null` skips POSIX profile edits. Fish integration is still installed when fish is available. |
-
-Example with an existing Linux arm64 bundle:
+From a checkout on a Linux host with Docker:
 
 ```sh
-NVMR_BUNDLE=dist/nvmr-linux-aarch64 sh install.sh
+docker build -t nvmr-dev docker
+scripts/d.sh sh -c 'touch src/*.rs src/bin/*.rs && sh /src/scripts/bundle.sh'
+NVMR_BUNDLE="dist/nvmr-linux-$(docker run --rm nvmr-dev uname -m)" sh install.sh
 ```
-
-See [install.sh](install.sh) for the full installer. There is no default hosted download endpoint configured.
-
-</details>
 
 ## Quick start
 
+The shell command is `nvm`; it works with existing nvm commands and project files:
+
 ```sh
-nvm install --lts          # Install and use the latest LTS
-nvm use 22                 # Switch to an installed Node 22
-nvm alias default 22       # Set the default for new shells
-nvm current                # Show the active version
-nvm ls                     # List installed versions and aliases
-nvm exec 22 node app.js    # Run a command using Node 22
+nvm install --lts          # Install and use the latest LTS release.
+nvm use 22                 # Switch to an installed Node 22.
+nvm alias default 22       # Select the version for new shells.
+nvm current                # Show the active version.
+nvm ls                     # List installed versions and aliases.
+nvm exec 22 node app.js    # Run a command with Node 22.
 ```
 
-Let a project choose its version:
+For a project-specific version:
 
 ```sh
-echo "22" > .nvmrc
+echo 22 > .nvmrc
 nvm install
 nvm use
 ```
 
-For the branded command name, add this after nvm loads in your shell profile. bash, zsh, and fish support this alias syntax:
-
-```sh
-alias nvmr='nvm'
-```
-
-Then use `nvmr install --lts`, `nvmr use`, or any other nvm command. Existing `nvm` calls keep working.
-
-Run `nvm --help` for all commands, or read the [command reference](src/help.txt).
-
-## Compatibility
-
-nvmr targets the behavior of [nvm-sh/nvm v0.40.8](https://github.com/nvm-sh/nvm/tree/v0.40.8): commands, output, exit codes, and the `$NVM_DIR` layout. It is an independent implementation. The [behavioral specification](nvm-compat-spec.md) records the contracts and upstream quirks reproduced on purpose. Some edge cases still differ; see the [known differences in §15](nvm-compat-spec.md#15-implementation-status-2026-10-22).
-
-| Area | Current status |
-| --- | --- |
-| Linux | Built and verified in Docker. |
-| macOS | Target platform; not yet built or tested. |
-| Shells | bash, zsh, dash/POSIX sh, and fish. |
-| Existing installs | Node versions, aliases, and `.nvmrc` files use the upstream layout. |
-| Legacy installs | Existing io.js and pre-0.12 Node installs can be recognized, listed, resolved, used, and uninstalled. Installing io.js is unsupported. |
-| Other platforms | Windows/MSYS, SunOS, AIX, and BSD are outside the current scope. |
+If you prefer the project name as a command, add `alias nvmr='nvm'` after the integration loads. Run `nvm --help` or read the [command reference](src/help.txt) for the complete command list.
 
 ### Startup options
 
-Set these before loading `nvm.sh`:
+Set these before sourcing `nvm.sh`:
 
-```sh
-export NVM_LAZY=1
-. "$NVM_DIR/nvm.sh"
-```
+| Option | Effect |
+| --- | --- |
+| `NVM_LAZY=1` | Defer automatic selection until the first `nvm`, `node`, `npm`, `npx`, `corepack`, `yarn`, or `pnpm` call. Fish skips startup auto-use; run `nvm use` yourself. |
+| `NVM_LAZY_PATH=1` | With lazy mode, set `PATH` directly when the default alias names an installed exact version. |
+| `. "$NVM_DIR/nvm.sh" --no-use` | Load the POSIX integration without selecting a version. |
 
-- `NVM_LAZY=1` defers automatic version selection until the first `nvm`, `node`, `npm`, `npx`, `corepack`, `yarn`, or `pnpm` call. In fish it skips startup auto-use; run `nvm use` yourself.
-- `NVM_LAZY_PATH=1`, together with lazy mode, can set the path directly when the default alias contains an installed exact version.
-- `. "$NVM_DIR/nvm.sh" --no-use` loads the POSIX integration without selecting a version.
+## Compatibility
 
-## Benchmarks
+The [behavioral specification](nvm-compat-spec.md) records the upstream contract, intentional quirks, and [known differences](nvm-compat-spec.md#15-implementation-status-2026-11-06). nvmr is an independent implementation, not a copy of nvm's shell internals.
 
-The [benchmark harness](bench/bench.py) measures shell startup, commands, and project switching against pinned inputs. [bench/docker.sh](bench/docker.sh) provides the controlled reference run; [bench/host.sh](bench/host.sh) measures the developer machine in an isolated sandbox.
-
-Publish performance figures only with their saved `bench/results/<run>/` report and environment details. There are no saved results included with this page yet. See [specification §13](nvm-compat-spec.md#13-performance-baseline-budgets-profiling-competitors) for performance requirements and methodology.
-
-## How it works
-
-```text
-Your shell                     Native processes
-───────────────────────────    ──────────────────────────────
-nvm() shell function     ────► nvmr
-  applies environment    ◄────   resolves versions and PATH
-  changes to this shell          │
-                                 └── nvmr-fetch
-                                       HTTPS · checksums
-                                       download · extraction
-```
-
-A child process cannot change its parent’s environment. The shell function runs `nvmr`, then sources the environment changes it queued. Keeping HTTPS and extraction in `nvmr-fetch` keeps that machinery out of the everyday command path. `nvm-exec` can launch a command with the selected environment directly.
-
-The project name is `nvmr`; `nvmr`, `nvmr-fetch`, `nvm.sh`, and bundle names remain implementation interfaces.
+| Area | Status |
+| --- | --- |
+| Linux arm64 and x86_64 | Release bundles; the full parity gate has passed on arm64 in Docker. |
+| macOS arm64 and x86_64 | Native release bundles with install smoke checks; full parity remains untested. |
+| Shells | bash, zsh, POSIX sh, and fish. |
+| Existing installs | Shares Node versions, aliases, and `.nvmrc` files in the upstream layout. |
+| Legacy versions | Recognizes existing io.js and pre-0.12 Node installs; installing io.js is unsupported. |
 
 ## Development
 
-Rust builds and parity checks run in Docker. The dev image includes Rust, bash, zsh, fish, hyperfine, and upstream nvm v0.40.8 at `/opt/nvm-upstream`.
+Build and run parity checks in Docker:
 
 ```sh
 docker build -t nvmr-dev docker
-scripts/d.sh cargo build --release
 scripts/verify.sh
-scripts/d.sh sh /src/scripts/bundle.sh
 ```
 
-[scripts/verify.sh](scripts/verify.sh) uses a fresh Cargo target volume and runs [scripts/all.sh](scripts/all.sh). The gate compares stdout, stderr, exit codes, and resulting shell environments against upstream, including real downloads:
+The gate runs Rust formatting, Clippy, unit tests, and 753 command comparisons against upstream nvm v0.40.8. It also checks color, bash/zsh/fish integration, read-only installs, interrupts, and portability. See [scripts/verify.sh](scripts/verify.sh) and the [benchmark harness](bench/bench.py) for the complete checks. Benchmark figures belong with their saved results under `bench/results/`.
 
-- Rust formatting, Clippy with warnings denied, and unit tests.
-- Version resolution, installs, aliases, `.nvmrc`, LTS, source builds, mirrors, offline behavior, locks, hooks, global packages, and legacy layouts.
-- Interrupted downloads, extraction, and installs.
-- Colored output, bash/zsh/fish integration, POSIX portability, lazy modes, and completion.
+## License
 
-### Website and brand
-
-The [one-page website](website/index.html) is buildless HTML, CSS, and JavaScript, with local fonts. All website files, brand assets, and design records live in `website/`. Open `website/index.html` directly, or serve the repository root with a static HTTP server and visit `/website/` to enable clipboard buttons.
-
-For publication, copy `website/` and its linked project resources into a dedicated public directory, preserving their relative locations: `README.md`, `install.sh`, `nvm-compat-spec.md`, `src/help.txt`, and `bench/bench.py` sit outside `website/`. Serve the public directory and visit `/website/`; no build step is needed.
-
-The [brand guide](website/BRAND.md) documents naming, artwork, color, typography, and voice. All web design values live in [website/tokens.css](website/tokens.css).
+[MIT](LICENSE).
