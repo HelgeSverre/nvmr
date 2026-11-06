@@ -18,7 +18,7 @@ jobs:
             arch: aarch64
     runs-on: ${{ matrix.runner }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: Build dev image
         run: docker build -t nvmr-dev docker
       - name: Build static bundle
@@ -27,6 +27,7 @@ jobs:
         run: |
           docker run --rm -v "$PWD":/src:ro nvmr-dev sh -eu -c '
             export HOME=/tmp/nvmr-release-smoke PROFILE=/dev/null
+            export NVM_DIR="$HOME/.nvm"
             NVMR_BUNDLE=/src/dist/nvmr-linux-$(uname -m) sh /src/install.sh
             . "$HOME/.nvm/nvm.sh" --no-use
             nvm --version
@@ -36,7 +37,7 @@ jobs:
         run: |
           test -s "dist/nvmr-linux-${{ matrix.arch }}.tar.gz"
           sha256sum "dist/nvmr-linux-${{ matrix.arch }}.tar.gz" > "dist/nvmr-linux-${{ matrix.arch }}.tar.gz.sha256"
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v6
         with:
           name: nvmr-linux-${{ matrix.arch }}
           path: |
