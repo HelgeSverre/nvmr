@@ -1,5 +1,8 @@
 # Performance
 
+See [other Node version managers](competitors.md) for the expanded mise/proto comparison and
+the limits of comparing tools with different version-selection behavior.
+
 See the [listing and directory-hook optimization follow-up](optimization-2026-11-06.md) for
 controlled before/after Docker and macOS runs. The measurements below describe the original
 implementation before that optimization.
@@ -68,17 +71,12 @@ call. [nvm.sh](../../nvm.sh) now chooses with shell builtins. The before and aft
 to 0.20 ms (R, 9% spread). The binary did not change. The full upstream parity gate ended
 `ALL GREEN` after the shell edit.
 
-## Next opportunities
+## Follow-up
 
-1. The native `cd` hook still starts nvmr when moving between directories without a version file.
-   fnm's hook does almost no work in that case. A shell-side no-op guard could help, but it must
-   preserve parent `.nvmrc` lookup and default reversion; benchmark and parity-test it first.
-2. `nvmr ls` is still slower than `fnm ls` with many versions. nvmr also renders aliases. Its
-   [listing path](../../src/main.rs) enumerates versions and aliases and resolves implicit aliases;
-   caching the installed version list within one command is a plausible next experiment. Measure
-   `--no-alias` separately before attributing the whole gap to Rust work.
-3. nvmr and fnm installs are close in the loopback test. Extraction dominates, so there is no
-   clear reason to change that path from these results.
+The [listing and directory-hook optimization](optimization-2026-11-06.md) implemented the two
+hot-path changes suggested by this original run. The [expanded comparison](competitors.md)
+measures the current implementation alongside mise and proto. Keep the runs separate: the newer
+comparison uses additional pinned tools and a revised harness.
 
 For a new publishable run, use `bench/docker.sh --publish --filter '<cases>'`. Keep the pins and
 CPU set fixed, commit the four generated result files when citing the run, and inspect the load

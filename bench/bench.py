@@ -1,11 +1,12 @@
 #!/usr/bin/env python3
-"""Reproducible benchmark harness: upstream nvm vs nvmr vs fnm.
+"""Reproducible benchmark harness: nvm, nvmr, fnm, and optional mise/proto.
 
-Runs identically inside the pinned Docker image (bench/docker.sh) and on a host sandbox (bench/host.sh).
+Core cases run in the pinned Docker image (bench/docker.sh) and a host sandbox (bench/host.sh).
+Mise and proto cases run when their binaries and preloaded state are supplied to setup.
 Every input is pinned in bench/pins.env; every run writes raw hyperfine JSON, the environment it ran in,
 and a Markdown report. See AGENTS.md ("Benchmarking and profiling") for the rules.
 
-  bench.py setup  --root R --nvm-src DIR --nvmr-src DIR --fnm BIN --dist DIR
+  bench.py setup  --root R --nvm-src DIR --nvmr-src DIR --fnm BIN --dist DIR [--mise BIN] [--proto-dist DIR --proto-seed DIR]
   bench.py run    --root R --out DIR [--rounds 3] [--quick | --publish] [--filter REGEX] [--seed N]
   bench.py report DIR
   bench.py profile --root R --out DIR          (Linux: strace/perf; macOS: linkage and RSS)
@@ -121,11 +122,35 @@ def cmd_setup(a: argparse.Namespace) -> None:
         nvm_state(f"nvm{sfx}", Path(a.nvm_src), many)
         nvm_state(f"nvmr{sfx}", Path(a.nvmr_src), many)
         fnm_state(f"fnm{sfx}", many)
-    shutil.rmtree(extracted)
 
     bindir = root / "bin"
     bindir.mkdir()
     shutil.copy2(a.fnm, bindir / "fnm")
+
+    if a.mise:
+        shutil.copy2(a.mise, bindir / "mise")
+        config = root / "mise-config"
+        config.mkdir()
+        (config / "config.toml").write_text(f'[tools]\nnode = "{p["NODE_A"].lstrip("v")}"\n')
+        for many in (False, True):
+            state = root / ("mise-many" if many else "mise")
+            for key in ("NODE_A", "NODE_B"):
+                copy_tree(extracted / p[key], state / "installs/node" / p[key].lstrip("v"))
+            if many:
+                for i in range(1, FAKE_VERSIONS + 1):
+                    fake_node(state / f"installs/node/18.{i}.0/bin", f"v18.{i}.0")
+
+    if a.proto_dist and a.proto_seed:
+        state = root / "proto"
+        shutil.copytree(a.proto_seed, state, symlinks=True)
+        for key in ("NODE_A", "NODE_B"):
+            copy_tree(extracted / p[key], state / "tools/node" / p[key].lstrip("v"))
+        proto_dist = Path(a.proto_dist)
+        (state / "bin").mkdir(exist_ok=True)
+        for name in ("proto", "proto-shim"):
+            shutil.copy2(proto_dist / name, state / "bin" / name)
+        os.symlink(state / "bin/proto", bindir / "proto")
+    shutil.rmtree(extracted)
 
     # Projects for the cd benchmarks: a/b switch versions, plain1/plain2 have no version file.
     proj = root / "proj"
@@ -134,6 +159,8 @@ def cmd_setup(a: argparse.Namespace) -> None:
         (proj / name / ".nvmrc").write_text(content + "\n")
     for name in ("plain1", "plain2"):
         (proj / name).mkdir(parents=True)
+    for name, key in (("a", "NODE_B"), ("b", "NODE_A")):
+        (proj / name / ".prototools").write_text(f'node = "{p[key].lstrip("v")}"\n')
 
     # Local mirror for the install benchmark: index.tab, index.json, SHASUMS256.txt, NODE_B tarball.
     mirror = root / "mirror"
@@ -209,19 +236,41 @@ NATIVE_CD = {
 }
 
 # config name -> (state dir, init snippet builder)
-CONFIGS = ("bare", "nvm", "nvm-nouse", "nvm-cd", "nvmr", "nvmr-nouse", "nvmr-cd", "nvmr-autocd", "fnm",
-           "nvm-many", "nvmr-many", "fnm-many")
+BASE_CONFIGS = ("bare", "bare-node", "nvm", "nvm-nouse", "nvm-cd", "nvmr", "nvmr-nouse", "nvmr-cd", "nvmr-autocd", "fnm",
+                "nvm-many", "nvmr-many", "fnm-many")
+
+
+def configs(root: Path) -> tuple[str, ...]:
+    extra = ()
+    if (root / "bin/mise").exists():
+        extra += ("mise", "mise-many")
+    if (root / "bin/proto").exists():
+        extra += ("proto-activate", "proto-shim")
+    return BASE_CONFIGS + extra
 
 
 def init_lines(cfg: str, shell: str, root: Path) -> str:
     if cfg == "bare":
         return ""
+    if cfg == "bare-node":
+        return f'export PATH="{root}/nvmr/versions/node/{pins()["NODE_A"]}/bin:$PATH"\n'
     base, _, variant = cfg.partition("-")
     many = variant == "many"
     state = root / (base + ("-many" if many else ""))
     if base == "fnm":
         return (f'export FNM_DIR="{state}"\nexport PATH="{root}/bin:$PATH"\n'
                 f'eval "$(fnm env --use-on-cd --shell {shell})"\n')
+    if base == "mise":
+        return (f'export MISE_DATA_DIR="{state}" MISE_CONFIG_DIR="{root}/mise-config" '
+                f'MISE_CACHE_DIR="{state}/cache" MISE_STATE_DIR="{state}/state" '
+                'MISE_IDIOMATIC_VERSION_FILE_ENABLE_TOOLS=node\n'
+                f'export PATH="{root}/bin:$PATH"\neval "$(mise activate {shell})"\n')
+    if base == "proto":
+        lines = (f'export PROTO_HOME="{root}/proto" PROTO_BYPASS_VERSION_CHECK=1\n'
+                 f'export PATH="{root}/proto/bin:$PATH"\n')
+        if variant == "shim":
+            return lines + f'export PATH="{root}/proto/shims:$PATH"\n'
+        return lines + f'eval "$(proto activate {shell} --no-shim --config-mode all)"\n'
     lines = f'export NVM_DIR="{state}"\n. "$NVM_DIR/nvm.sh"' + (" --no-use" if variant == "nouse" else "") + "\n"
     if variant == "cd":
         lines += BASH_CDNVM if shell == "bash" else ZSH_LOAD_NVMRC
@@ -232,7 +281,7 @@ def init_lines(cfg: str, shell: str, root: Path) -> str:
 
 def write_rcfiles(root: Path, p: dict[str, str]) -> None:
     for shell in ("bash", "zsh"):
-        for cfg in CONFIGS:
+        for cfg in configs(root):
             d = root / "rc" / shell / cfg
             d.mkdir(parents=True, exist_ok=True)
             body = init_lines(cfg, shell, root)
@@ -251,7 +300,7 @@ def write_rcfiles(root: Path, p: dict[str, str]) -> None:
 class Bench:
     id: str
     group: str
-    tool: str  # nvm | nvmr | fnm | bare
+    tool: str  # manager name or bare baseline
     cmd: list[str]
     ops: int = 0  # >0: in-shell loop doing `ops` operations; per-op cost is derived against `baseline`
     baseline: str = ""
@@ -281,7 +330,12 @@ def matrix(root: Path, p: dict[str, str], quick: bool, mirror: str) -> list[Benc
 
     # 1. Shell startup with each tool's documented init (overhead = config - bare).
     for s in shells:
-        for cfg in ("bare", "nvm", "nvm-nouse", "nvm-cd", "nvmr", "nvmr-nouse", "nvmr-cd", "nvmr-autocd", "fnm"):
+        startup_cfgs = ["bare", "bare-node", "nvm", "nvm-nouse", "nvm-cd", "nvmr", "nvmr-nouse", "nvmr-cd", "nvmr-autocd", "fnm"]
+        if (root / "bin/mise").exists():
+            startup_cfgs.append("mise")
+        if (root / "bin/proto").exists():
+            startup_cfgs.extend(("proto-activate", "proto-shim"))
+        for cfg in startup_cfgs:
             tool = cfg.split("-")[0]
             expect = "" if cfg in ("bare", "nvm-nouse", "nvmr-nouse") else A
             out.append(Bench(
@@ -338,12 +392,33 @@ def matrix(root: Path, p: dict[str, str], quick: bool, mirror: str) -> list[Benc
         for cfg in ("nvm-many", "nvmr-many", "fnm-many"):
             out.append(Bench(f"startup/{s}/{cfg}", "startup-many", cfg.split("-")[0], shell_cmd(s, cfg, root, "exit"),
                              baseline=f"startup/{s}/bare"))
+        if (root / "bin/mise").exists():
+            out.append(Bench(f"startup/{s}/mise-many", "startup-many", "mise", shell_cmd(s, "mise-many", root, "exit"),
+                             baseline=f"startup/{s}/bare"))
+            out.append(Bench(f"ls-many/{s}/mise", "ls-many", "mise",
+                             shell_cmd(s, "mise-many", root, loop(5 * scale, "mise ls node >/dev/null")),
+                             ops=5 * scale, baseline=f"startup/{s}/mise-many",
+                             check="18.100.0", check_cmd=shell_cmd(s, "mise-many", root, "mise ls node")))
+
+        # Executing the same pinned Node binary reveals shim overhead; no manager command is in the loop.
+        exec_cfgs = ["bare-node", "nvmr", "fnm"]
+        if (root / "bin/mise").exists():
+            exec_cfgs.append("mise")
+        if (root / "bin/proto").exists():
+            exec_cfgs.extend(("proto-activate", "proto-shim"))
+        for cfg in exec_cfgs:
+            out.append(Bench(f"node-exec/{s}/{cfg}", "node-exec", cfg.split("-")[0],
+                             shell_cmd(s, cfg, root, loop(2, "node -e 0 >/dev/null")),
+                             ops=2, baseline=f"startup/{s}/{cfg}", check=A,
+                             check_cmd=shell_cmd(s, cfg, root, "node -v")))
 
     # 3. cd with auto-switch: into a project with .nvmrc and back (2 switches per iteration),
     #    and between directories without a version file (2 no-op hooks per iteration).
     cd_cfgs = {  # label -> (config, iterations for cd-switch, iterations for cd-nochange)
         "nvm": ("nvm-cd", 2, 10), "nvmr": ("nvmr-cd", 10, 20),
         "nvmr-native": ("nvmr-autocd", 25, 25), "fnm": ("fnm", 25, 25)}
+    if (root / "bin/mise").exists():
+        cd_cfgs["mise"] = ("mise", 25, 25)
     for s in shells:
         for label, (cfg, n_switch, n_same) in cd_cfgs.items():
             n = n_switch * scale
@@ -429,6 +504,18 @@ def environment(root: Path, a: argparse.Namespace) -> dict:
     def sha256(path: Path) -> str:
         return hashlib.sha256(path.read_bytes()).hexdigest()
 
+    versions = {
+        "hyperfine": capture([HYPERFINE, "--version"]),
+        "bash": capture([SHELLS["bash"], "--version"]).splitlines()[0],
+        "zsh": capture([SHELLS["zsh"], "--version"]),
+        "fnm": capture([str(root / "bin/fnm"), "--version"]),
+        "nvmr": capture([str(root / "nvmr/nvmr"), "--version"]),
+        "python": platform.python_version(),
+    }
+    if (root / "bin/mise").exists():
+        versions["mise"] = capture([str(root / "bin/mise"), "--version"])
+    if (root / "bin/proto").exists():
+        versions["proto"] = capture([str(root / "bin/proto"), "--version"])
     return {
         "started": time.strftime("%Y-%m-%dT%H:%M:%S%z"),
         "where": os.environ.get("BENCH_WHERE", "host"),
@@ -440,14 +527,7 @@ def environment(root: Path, a: argparse.Namespace) -> dict:
         "seed": a.seed, "rounds": a.rounds, "quick": a.quick, "publish": a.publish, "filter": a.filter,
         "platform": platform.platform(), "uname": capture(["uname", "-a"]), "cpu": cpu_model(),
         "ncpu": os.cpu_count(), "cgroup": cg,
-        "versions": {
-            "hyperfine": capture([HYPERFINE, "--version"]),
-            "bash": capture([SHELLS["bash"], "--version"]).splitlines()[0],
-            "zsh": capture([SHELLS["zsh"], "--version"]),
-            "fnm": capture([str(root / "bin/fnm"), "--version"]),
-            "nvmr": capture([str(root / "nvmr/nvmr"), "--version"]),
-            "python": platform.python_version(),
-        },
+        "versions": versions,
     }
 
 
@@ -484,8 +564,8 @@ def check(b: Bench, env: dict) -> None:
     if b.prepare:
         subprocess.run(b.prepare, shell=True, env=env)
     r = subprocess.run(b.check_cmd, capture_output=True, text=True, env=env, timeout=600)
-    if b.check and b.check not in r.stdout:
-        raise SystemExit(f"check failed for {b.id}: expected {b.check!r} in stdout\n"
+    if r.returncode != 0 or (b.check and b.check not in r.stdout):
+        raise SystemExit(f"check failed for {b.id}: exit {r.returncode}, expected {b.check!r} in stdout\n"
                          f"cmd: {shlex.join(b.check_cmd)}\nstdout: {r.stdout[-2000:]}\nstderr: {r.stderr[-2000:]}")
 
 
@@ -627,7 +707,8 @@ def report(out: Path) -> None:
          f"- {meta['cpu']}, {meta['ncpu']} CPUs, {meta['platform']}",
          f"- cgroup: {meta['cgroup'] or 'none'}",
          f"- {meta['versions']['hyperfine']}; bash `{meta['versions']['bash']}`; `{meta['versions']['zsh']}`; "
-         f"fnm `{meta['versions']['fnm']}`; nvm {meta['pins']['NVM_VERSION']}; nvmr `{meta['versions']['nvmr']}`",
+         f"fnm `{meta['versions']['fnm']}`; nvm {meta['pins']['NVM_VERSION']}; nvmr `{meta['versions']['nvmr']}`"
+         + "".join(f"; {name} `{meta['versions'][name]}`" for name in ("mise", "proto") if name in meta["versions"]),
          f"- load average before/after: {meta['load_before']} / {meta['load_after']}"
          + ("  **NOISY: load exceeded ncpu/4; trust min and p10, not medians**" if noisy(meta) else ""), "",
          "Per-operation numbers are loop totals minus the same shell's startup, divided by the operation count; "
@@ -659,16 +740,18 @@ def report(out: Path) -> None:
     by = lambda g: [i for i, b in benches.items() if b["group"] == g]
     table("Shell startup overhead (config minus bare shell)", by("startup"), True,
           "`nvm-cd`/`nvmr-cd` add upstream's README auto-switch recipe; `nvmr-autocd` uses nvmr's one-process "
-          "hook; `fnm` is `fnm env --use-on-cd`.")
+          "hook; `fnm` is `fnm env --use-on-cd`; `mise` uses `mise activate` with documented `.nvmrc` support; "
+          "`proto-activate` uses `proto activate --no-shim --config-mode all`; `proto-shim` adds its shim directory.")
     for g, title in (("use", "`use` (switch between two installed versions)"), ("current", "`current`"),
                      ("version", "`version <major>` (resolution)"), ("ls-many", "`ls` with 102 versions installed"),
                      ("ls-many-noalias", "`ls --no-alias` with 102 versions installed"),
+                     ("node-exec", "direct `node -e 0` execution (shim cost included)"),
                      ("cd-switch", "`cd` into/out of a project with `.nvmrc` (switches each time)"),
                      ("cd-nochange", "`cd` between directories without a version file"),
                      ("install", "install from a loopback mirror (download + verify + extract)")):
         table(title, by(g), g != "install")
     table("Bare process latency", by("process"), False)
-    (out / "report.md").write_text("\n".join(L) + "\n")
+    (out / "report.md").write_text("\n".join(line.rstrip() for line in L).rstrip() + "\n")
     print("\n".join(L))
 
 
@@ -684,7 +767,12 @@ def cmd_profile(a: argparse.Namespace) -> None:
     bmaj = p["NODE_B"].lstrip("v").split(".")[0]
     L = ["# Profile", ""]
     core = root / "nvmr/nvmr"
-    L += ["## Binaries", "", "```", capture(["ls", "-l", str(core), str(root / "nvmr/nvmr-fetch"), str(root / "bin/fnm")])]
+    binary_paths = [core, root / "nvmr/nvmr-fetch", root / "bin/fnm"]
+    if (root / "bin/mise").exists():
+        binary_paths.append(root / "bin/mise")
+    if (root / "bin/proto").exists():
+        binary_paths.extend((root / "proto/bin/proto", root / "proto/bin/proto-shim"))
+    L += ["## Binaries", "", "```", capture(["ls", "-l", *(str(path) for path in binary_paths)])]
     if platform.system() == "Darwin":
         L += [capture(["otool", "-L", str(core)]), capture(["otool", "-L", str(root / "bin/fnm")])]
     else:
@@ -700,8 +788,18 @@ def cmd_profile(a: argparse.Namespace) -> None:
         "nvmr: startup with auto-use": shell_cmd("bash", "nvmr", root, "exit"),
         "fnm: startup (env --use-on-cd)": shell_cmd("bash", "fnm", root, "exit"),
         "fnm: startup + use": shell_cmd("bash", "fnm", root, f"fnm use {bmaj} >/dev/null"),
+        "nvmr: two no-change cds": shell_cmd("bash", "nvmr-autocd", root,
+                                               f"cd {root}/proj/plain1; cd {root}/proj/plain2"),
+        "fnm: two no-change cds": shell_cmd("bash", "fnm", root,
+                                             f"cd {root}/proj/plain1; cd {root}/proj/plain2"),
         "bare bash": shell_cmd("bash", "bare", root, "exit"),
     }
+    if (root / "bin/mise").exists():
+        cases["mise: startup with activation"] = shell_cmd("bash", "mise", root, "exit")
+        cases["mise: ls (102 versions)"] = shell_cmd("bash", "mise-many", root, "mise ls node >/dev/null")
+    if (root / "bin/proto").exists():
+        cases["proto: startup with activation"] = shell_cmd("bash", "proto-activate", root, "exit")
+        cases["proto: startup with shim"] = shell_cmd("bash", "proto-shim", root, "exit")
     if platform.system() == "Linux" and shutil.which("strace"):
         L += ["## Processes and syscalls (strace -f, bash)", "",
               "| case | execve | forks | syscalls |", "|---|---:|---:|---:|"]
@@ -746,7 +844,7 @@ def cmd_profile(a: argparse.Namespace) -> None:
             kb = int(m.group(1)) // (1024 if platform.system() == "Darwin" else 1) if m else -1
             L.append(f"| {name} | {kb} KB |")
         L.append("")
-    (out / "profile.md").write_text("\n".join(L) + "\n")
+    (out / "profile.md").write_text("\n".join(line.rstrip() for line in L).rstrip() + "\n")
     print("\n".join(L))
 
 
@@ -762,6 +860,9 @@ def main() -> None:
     s.add_argument("--nvmr-src", required=True)
     s.add_argument("--fnm", required=True)
     s.add_argument("--dist", required=True)
+    s.add_argument("--mise")
+    s.add_argument("--proto-dist")
+    s.add_argument("--proto-seed")
     r = sub.add_parser("run")
     r.add_argument("--root", required=True)
     r.add_argument("--out", required=True)

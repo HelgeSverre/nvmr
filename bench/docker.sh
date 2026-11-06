@@ -35,7 +35,8 @@ docker run --rm --network none --cpuset-cpus "${BENCH_CPUS:-2,3}" --memory "${BE
   -e BENCH_GIT="$git_desc" -e BENCH_WHERE="docker cpuset=${BENCH_CPUS:-2,3} mem=${BENCH_MEM:-2g}" \
   -v "$out":/out "$tag" sh -c '
     set -e
-    python3 bench.py setup --root /work/root --nvm-src nvm --nvmr-src nvmr --fnm fnm --dist dist >/dev/null
+    python3 bench.py setup --root /work/root --nvm-src nvm --nvmr-src nvmr --fnm fnm --dist dist \
+      --mise mise --proto-dist "proto-dist/proto_cli-$(uname -m)-unknown-linux-gnu" --proto-seed proto-seed >/dev/null
     python3 bench.py run --root /work/root --out /out "$@"
     python3 bench.py profile --root /work/root --out /out >/dev/null' sh "$@"
 echo "results: $out"
