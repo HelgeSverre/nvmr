@@ -39,8 +39,8 @@ The `opt/nvmr` symlink follows Homebrew upgrades. Set a different `NVM_DIR` in t
 Release bundles cover macOS and Linux on arm64 and x86_64. Download the installer from the tagged release, then point it at that release's bundles:
 
 ```sh
-curl -fsSLO https://raw.githubusercontent.com/HelgeSverre/nvmr/v0.1.0/install.sh
-NVMR_URL=https://github.com/HelgeSverre/nvmr/releases/download/v0.1.0 sh install.sh
+curl -fsSLO https://raw.githubusercontent.com/HelgeSverre/nvmr/v0.1.1/install.sh
+NVMR_URL=https://github.com/HelgeSverre/nvmr/releases/download/v0.1.1 sh install.sh
 ```
 
 The installer chooses `$XDG_CONFIG_HOME/nvm` when XDG is set, otherwise `~/.nvm`. It adds the shell startup lines to a detected profile and installs fish integration when fish is available. Open a new shell, or load bash/zsh immediately:
