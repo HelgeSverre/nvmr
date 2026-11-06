@@ -1,5 +1,9 @@
 # Performance
 
+See the [listing and directory-hook optimization follow-up](optimization-2026-11-06.md) for
+controlled before/after Docker and macOS runs. The measurements below describe the original
+implementation before that optimization.
+
 Measured on 2026-11-06 in the pinned Linux arm64 Docker harness. These results describe this
 environment, not macOS or an arbitrary developer machine.
 

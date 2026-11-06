@@ -1,8 +1,12 @@
 //! On-disk state under `$NVM_DIR`: installed versions and aliases.
+use std::cell::{Cell, RefCell};
+use std::collections::HashMap;
 use std::fs;
 use std::path::{Path, PathBuf};
 
 pub type Ver = (u64, u64, u64);
+type Installed = Vec<(Ver, String)>;
+type ListingCache = HashMap<(bool, bool), Installed>;
 
 pub fn parse_ver(s: &str) -> Option<Ver> {
     let s = s.strip_prefix('v').unwrap_or(s);
@@ -28,9 +32,24 @@ pub fn ensure_v(s: &str) -> String {
 
 pub struct Store {
     pub dir: PathBuf,
+    listing_cache_enabled: Cell<bool>,
+    listing_cache: RefCell<ListingCache>,
 }
 
 impl Store {
+    pub fn new(dir: PathBuf) -> Self {
+        Self {
+            dir,
+            listing_cache_enabled: Cell::new(false),
+            listing_cache: RefCell::new(HashMap::new()),
+        }
+    }
+
+    /// A listing only reads installed versions; reuse scans while rendering its aliases.
+    pub fn enable_listing_cache(&self) {
+        self.listing_cache_enabled.set(true);
+    }
+
     /// `nvm_version_path`: io.js under `versions/io.js`, node < 0.12 in the old layout (`$NVM_DIR/vX`).
     pub fn version_dir(&self, v: &str) -> PathBuf {
         if let Some(r) = v.strip_prefix("iojs-") {
@@ -50,6 +69,11 @@ impl Store {
     /// Upstream's `nvm_ls` enumeration: node = old layout + `versions/node`, io.js = `versions/io.js`.
     /// Sorted numerically across flavours; one entry per number (`sort -u`, node wins).
     pub fn installed_flavour(&self, node: bool, iojs: bool) -> Vec<(Ver, String)> {
+        if self.listing_cache_enabled.get() {
+            if let Some(cached) = self.listing_cache.borrow().get(&(node, iojs)) {
+                return cached.clone();
+            }
+        }
         let scan = |dir: PathBuf, prefix: &str, out: &mut Vec<(Ver, String)>| {
             for e in fs::read_dir(dir).into_iter().flatten().flatten() {
                 let Ok(n) = e.file_name().into_string() else {
@@ -73,6 +97,11 @@ impl Store {
         }
         out.sort_by_key(|(v, n)| (*v, n.starts_with("iojs-")));
         out.dedup_by_key(|x| x.0);
+        if self.listing_cache_enabled.get() {
+            self.listing_cache
+                .borrow_mut()
+                .insert((node, iojs), out.clone());
+        }
         out
     }
 
@@ -376,7 +405,7 @@ mod tests {
             fs::create_dir_all(&b).unwrap();
             fs::write(b.join("node"), "").unwrap();
         }
-        Store { dir: d }
+        Store::new(d)
     }
 
     #[test]

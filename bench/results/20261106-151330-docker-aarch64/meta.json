@@ -1,0 +1,378 @@
+{
+  "started": "2026-11-06T14:13:34+0000",
+  "where": "docker cpuset=2,3 mem=2g",
+  "git": "v0.1.0-1-g107b1be-dirty",
+  "sha256": {
+    "bench.py": "aa03bbca0dd12ed8fadf6f79cc5ae12dcb1bd74992f72defc1280b49978407f2",
+    "nvmr": "df6a86e940d7f72215bdc29781bb76213b334b1110ac86b39b363c9309789538",
+    "nvm.sh": "702fe5b45bf084811a6f28045f608c19fec7e08ad88040cb477810ccea86ae7b"
+  },
+  "pins": {
+    "DEBIAN_IMAGE": "debian:bookworm-slim@sha256:7ff6ba31527b9e336162fa061746c366c4b2032f4d2cff2078bea43f78efe3f8",
+    "DEBIAN_SNAPSHOT": "20261020T000000Z",
+    "NVM_VERSION": "v0.40.8",
+    "NVM_COMMIT": "8db529c5350353f165e1e7f6abb6eb6909f7fd37",
+    "FNM_VERSION": "v1.39.0",
+    "FNM_SHA256_linux_arm64": "4eaff58b2c5bf30d0934027572dd0b5bbb60d2a1af309230b53662d4b1d45599",
+    "FNM_SHA256_linux_x64": "7807664f39d39fc518da1c35ba0181e4b3267603c4b1dedeb4b5fc6ae440a224",
+    "FNM_SHA256_darwin_arm64": "f046483e85c53b3278efe49a3620c8680f22efa58a8dabfd03eafc6b59b31a25",
+    "HYPERFINE_VERSION": "v1.20.0",
+    "HYPERFINE_SHA256_linux_arm64": "90875cb1db7a1d797c311174d061728361e58fc70e3b62262a00635ac3b1997c",
+    "HYPERFINE_SHA256_linux_x64": "63ad53934062118f5b0be11785e0bb1603d4b91667d1921f2fd8df9a8712040a",
+    "NODE_A": "v22.22.3",
+    "NODE_B": "v20.20.2",
+    "NODE_A_SHA256_linux_arm64": "1c4a9933a5e45bc88f54f70b5f91232c127ec49f1a5989d23fb85824c7adf9b7",
+    "NODE_A_SHA256_linux_x64": "2e5d13569282d016861fae7c8f935e741693c269101a5bebcf761a5376d1f99f",
+    "NODE_A_SHA256_darwin_arm64": "753c1629e168cc788ccc46ab61e0b35549fce08c07f82fcd3bb0d41f7fb01e7b",
+    "NODE_B_SHA256_linux_arm64": "73093db209e4e9e09dd7d15a47aeaab1b74833830df03efa5f942a1122c5fa71",
+    "NODE_B_SHA256_linux_x64": "df770b2a6f130ed8627c9782c988fda9669fa23898329a61a871e32f965e007d",
+    "NODE_B_SHA256_darwin_arm64": "6375a1d4421bc04ab284ba89459df788a78c49c89e83c463d0eede47e2efc07b"
+  },
+  "seed": 20261022,
+  "rounds": 3,
+  "quick": false,
+  "publish": true,
+  "filter": "ls-many/bash/(nvmr|fnm)|ls-many-noalias/bash/nvmr|cd-nochange/bash/(nvmr-native|fnm)",
+  "platform": "Linux-7.2.12-orbstack-00394-gbecdd6130068-aarch64-with-glibc2.36",
+  "uname": "Linux c0ffac94124c 7.2.12-orbstack-00394-gbecdd6130068 #1 SMP PREEMPT Thu Oct 22 22:17:17 UTC 2026 aarch64 GNU/Linux",
+  "cpu": "aarch64",
+  "ncpu": 12,
+  "cgroup": {
+    "/sys/fs/cgroup/cpu.max": "max 100000",
+    "/sys/fs/cgroup/cpuset.cpus.effective": "2-3",
+    "/sys/fs/cgroup/memory.max": "2147483648"
+  },
+  "versions": {
+    "hyperfine": "hyperfine 1.20.0",
+    "bash": "GNU bash, version 5.2.15(1)-release (aarch64-unknown-linux-gnu)",
+    "zsh": "zsh 5.9 (aarch64-unknown-linux-gnu)",
+    "fnm": "fnm 1.39.0",
+    "nvmr": "0.40.8",
+    "python": "3.11.2"
+  },
+  "load_before": [
+    1.91,
+    1.82,
+    1.47
+  ],
+  "ncpu_usable": 2,
+  "benchmarks": [
+    {
+      "id": "startup/bash/nvmr-autocd",
+      "group": "startup",
+      "tool": "nvmr",
+      "cmd": [
+        "bash",
+        "--noprofile",
+        "--rcfile",
+        "/work/root/rc/bash/nvmr-autocd/bashrc",
+        "-i",
+        "-c",
+        "exit"
+      ],
+      "ops": 0,
+      "baseline": "startup/bash/bare",
+      "check": "v22.22.3",
+      "check_cmd": [
+        "bash",
+        "--noprofile",
+        "--rcfile",
+        "/work/root/rc/bash/nvmr-autocd/bashrc",
+        "-i",
+        "-c",
+        "node -v 2>/dev/null; true"
+      ],
+      "prepare": "",
+      "slow": false
+    },
+    {
+      "id": "startup/bash/fnm",
+      "group": "startup",
+      "tool": "fnm",
+      "cmd": [
+        "bash",
+        "--noprofile",
+        "--rcfile",
+        "/work/root/rc/bash/fnm/bashrc",
+        "-i",
+        "-c",
+        "exit"
+      ],
+      "ops": 0,
+      "baseline": "startup/bash/bare",
+      "check": "v22.22.3",
+      "check_cmd": [
+        "bash",
+        "--noprofile",
+        "--rcfile",
+        "/work/root/rc/bash/fnm/bashrc",
+        "-i",
+        "-c",
+        "node -v 2>/dev/null; true"
+      ],
+      "prepare": "",
+      "slow": false
+    },
+    {
+      "id": "ls-many/bash/nvmr",
+      "group": "ls-many",
+      "tool": "nvmr",
+      "cmd": [
+        "bash",
+        "--noprofile",
+        "--rcfile",
+        "/work/root/rc/bash/nvmr-many/bashrc",
+        "-i",
+        "-c",
+        "i=0; while [ $i -lt 10 ]; do nvm ls >/dev/null; i=$((i+1)); done"
+      ],
+      "ops": 10,
+      "baseline": "startup/bash/nvmr-many",
+      "check": "v18.100.0",
+      "check_cmd": [
+        "bash",
+        "--noprofile",
+        "--rcfile",
+        "/work/root/rc/bash/nvmr-many/bashrc",
+        "-i",
+        "-c",
+        "nvm ls"
+      ],
+      "prepare": "",
+      "slow": false
+    },
+    {
+      "id": "ls-many-noalias/bash/nvmr",
+      "group": "ls-many-noalias",
+      "tool": "nvmr",
+      "cmd": [
+        "bash",
+        "--noprofile",
+        "--rcfile",
+        "/work/root/rc/bash/nvmr-many/bashrc",
+        "-i",
+        "-c",
+        "i=0; while [ $i -lt 10 ]; do nvm ls --no-alias >/dev/null; i=$((i+1)); done"
+      ],
+      "ops": 10,
+      "baseline": "startup/bash/nvmr-many",
+      "check": "v18.100.0",
+      "check_cmd": [
+        "bash",
+        "--noprofile",
+        "--rcfile",
+        "/work/root/rc/bash/nvmr-many/bashrc",
+        "-i",
+        "-c",
+        "nvm ls --no-alias"
+      ],
+      "prepare": "",
+      "slow": false
+    },
+    {
+      "id": "ls-many/bash/fnm",
+      "group": "ls-many",
+      "tool": "fnm",
+      "cmd": [
+        "bash",
+        "--noprofile",
+        "--rcfile",
+        "/work/root/rc/bash/fnm-many/bashrc",
+        "-i",
+        "-c",
+        "i=0; while [ $i -lt 10 ]; do fnm ls >/dev/null; i=$((i+1)); done"
+      ],
+      "ops": 10,
+      "baseline": "startup/bash/fnm-many",
+      "check": "v18.100.0",
+      "check_cmd": [
+        "bash",
+        "--noprofile",
+        "--rcfile",
+        "/work/root/rc/bash/fnm-many/bashrc",
+        "-i",
+        "-c",
+        "fnm ls"
+      ],
+      "prepare": "",
+      "slow": false
+    },
+    {
+      "id": "startup/bash/nvmr-many",
+      "group": "startup-many",
+      "tool": "nvmr",
+      "cmd": [
+        "bash",
+        "--noprofile",
+        "--rcfile",
+        "/work/root/rc/bash/nvmr-many/bashrc",
+        "-i",
+        "-c",
+        "exit"
+      ],
+      "ops": 0,
+      "baseline": "startup/bash/bare",
+      "check": "",
+      "check_cmd": [],
+      "prepare": "",
+      "slow": false
+    },
+    {
+      "id": "startup/bash/fnm-many",
+      "group": "startup-many",
+      "tool": "fnm",
+      "cmd": [
+        "bash",
+        "--noprofile",
+        "--rcfile",
+        "/work/root/rc/bash/fnm-many/bashrc",
+        "-i",
+        "-c",
+        "exit"
+      ],
+      "ops": 0,
+      "baseline": "startup/bash/bare",
+      "check": "",
+      "check_cmd": [],
+      "prepare": "",
+      "slow": false
+    },
+    {
+      "id": "cd-nochange/bash/nvmr-native",
+      "group": "cd-nochange",
+      "tool": "nvmr",
+      "cmd": [
+        "bash",
+        "--noprofile",
+        "--rcfile",
+        "/work/root/rc/bash/nvmr-autocd/bashrc",
+        "-i",
+        "-c",
+        "builtin cd /work/root/proj; i=0; while [ $i -lt 50 ]; do cd /work/root/proj/plain1; cd /work/root/proj/plain2; i=$((i+1)); done"
+      ],
+      "ops": 100,
+      "baseline": "startup/bash/nvmr-autocd",
+      "check": "v22.22.3",
+      "check_cmd": [
+        "bash",
+        "--noprofile",
+        "--rcfile",
+        "/work/root/rc/bash/nvmr-autocd/bashrc",
+        "-i",
+        "-c",
+        "cd /work/root/proj/plain1; node -v"
+      ],
+      "prepare": "",
+      "slow": false
+    },
+    {
+      "id": "cd-nochange/bash/fnm",
+      "group": "cd-nochange",
+      "tool": "fnm",
+      "cmd": [
+        "bash",
+        "--noprofile",
+        "--rcfile",
+        "/work/root/rc/bash/fnm/bashrc",
+        "-i",
+        "-c",
+        "builtin cd /work/root/proj; i=0; while [ $i -lt 50 ]; do cd /work/root/proj/plain1; cd /work/root/proj/plain2; i=$((i+1)); done"
+      ],
+      "ops": 100,
+      "baseline": "startup/bash/fnm",
+      "check": "v22.22.3",
+      "check_cmd": [
+        "bash",
+        "--noprofile",
+        "--rcfile",
+        "/work/root/rc/bash/fnm/bashrc",
+        "-i",
+        "-c",
+        "cd /work/root/proj/plain1; node -v"
+      ],
+      "prepare": "",
+      "slow": false
+    }
+  ],
+  "rounds_log": [
+    {
+      "round": 0,
+      "load_before": [
+        1.91,
+        1.82,
+        1.47
+      ],
+      "order": [
+        "ls-many-noalias/bash/nvmr",
+        "ls-many/bash/nvmr",
+        "cd-nochange/bash/nvmr-native",
+        "cd-nochange/bash/fnm",
+        "startup/bash/nvmr-autocd",
+        "startup/bash/fnm",
+        "startup/bash/fnm-many",
+        "ls-many/bash/fnm",
+        "startup/bash/nvmr-many"
+      ],
+      "load_after": [
+        1.84,
+        1.81,
+        1.47
+      ]
+    },
+    {
+      "round": 1,
+      "load_before": [
+        1.84,
+        1.81,
+        1.47
+      ],
+      "order": [
+        "ls-many/bash/fnm",
+        "startup/bash/fnm-many",
+        "ls-many-noalias/bash/nvmr",
+        "cd-nochange/bash/nvmr-native",
+        "startup/bash/nvmr-many",
+        "startup/bash/fnm",
+        "cd-nochange/bash/fnm",
+        "ls-many/bash/nvmr",
+        "startup/bash/nvmr-autocd"
+      ],
+      "load_after": [
+        1.8,
+        1.8,
+        1.47
+      ]
+    },
+    {
+      "round": 2,
+      "load_before": [
+        1.8,
+        1.8,
+        1.47
+      ],
+      "order": [
+        "startup/bash/fnm-many",
+        "cd-nochange/bash/nvmr-native",
+        "startup/bash/nvmr-many",
+        "cd-nochange/bash/fnm",
+        "startup/bash/fnm",
+        "startup/bash/nvmr-autocd",
+        "ls-many/bash/fnm",
+        "ls-many/bash/nvmr",
+        "ls-many-noalias/bash/nvmr"
+      ],
+      "load_after": [
+        1.83,
+        1.81,
+        1.48
+      ]
+    }
+  ],
+  "finished": "2026-11-06T14:14:10+0000",
+  "load_after": [
+    1.83,
+    1.81,
+    1.48
+  ],
+  "noisy": false
+}

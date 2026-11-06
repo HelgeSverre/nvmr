@@ -32,9 +32,7 @@ fn main() {
     );
     let mut cx = Ctx {
         pal: colors::detect(&args),
-        st: Store {
-            dir: PathBuf::from(&nvm_dir),
-        },
+        st: Store::new(PathBuf::from(&nvm_dir)),
         ev: Eval::new(env::var("NVM_SHELL").unwrap_or_else(|_| "bash".into())),
         nvm_dir,
     };
@@ -160,7 +158,7 @@ fn run(cx: &mut Ctx, args: &[String]) -> i32 {
             cx.ev.buf += &if cx.ev.shell == "fish" {
                 "functions -e nvm\n".to_string()
             } else {
-                "unset -f nvm nvm_find_up nvm_find_nvmrc nvm_ls_current nvm_version nvm_rc_version 2>/dev/null\n".to_string()
+                "unset -f nvm nvm_find_up nvm_find_nvmrc nvm_auto_cd nvm_ls_current nvm_version nvm_rc_version 2>/dev/null\n".to_string()
             };
             for v in [
                 "NVM_NODEJS_ORG_MIRROR",
@@ -830,7 +828,8 @@ fn cmd_alias(cx: &mut Ctx, rest: &[String]) -> i32 {
                 &name,
                 &t,
                 false,
-                Some(pre.unwrap_or_else(std::string::ToString::to_string))
+                Some(pre.unwrap_or_else(std::string::ToString::to_string)),
+                &cx.st.ls_current(&env::var("PATH").unwrap_or_default())
             )
         );
         return 0;
@@ -886,26 +885,22 @@ fn cmd_unalias(cx: &mut Ctx, rest: &[String]) -> i32 {
     println!("Deleted alias {name} - restore it with `nvm alias \"{name}\" \"{old}\"`");
     0
 }
-fn alias_line(cx: &Ctx, name: &str, dest: &str, implicit: bool) -> String {
-    alias_line_with(cx, name, dest, implicit, None)
-}
-
 fn alias_line_with(
     cx: &Ctx,
     name: &str,
     dest: &str,
     implicit: bool,
     pre: Option<String>,
+    cur: &str,
 ) -> String {
-    let path = env::var("PATH").unwrap_or_default();
-    let cur = cx.st.ls_current(&path);
     let resolved = pre.unwrap_or_else(|| {
         cx.st
             .version(dest)
             .unwrap_or_else(std::string::ToString::to_string)
     });
+    let installed = cx.st.is_installed(&resolved);
     let status = |v: &str| -> usize {
-        if v == "N/A" || v == "∞" || !cx.st.is_installed(v) {
+        if !installed {
             4
         } else if v == cur {
             3
@@ -939,11 +934,7 @@ fn alias_line_with(
     } else {
         status(&resolved)
     };
-    let star = if !colour && cx.st.is_installed(&resolved) {
-        " *"
-    } else {
-        ""
-    };
+    let star = if !colour && installed { " *" } else { "" };
     let mut out = format!(
         "{} {arrow} {}",
         colors::paint(&cx.pal, name_c, name),
@@ -968,7 +959,12 @@ fn alias_line_with(
 }
 
 fn print_alias(cx: &Ctx, name: &str, dest: &str) {
-    println!("{}", alias_line(cx, name, dest, false));
+    let cur = cx.st.ls_current(&env::var("PATH").unwrap_or_default());
+    print_alias_cached(cx, name, dest, &cur);
+}
+
+fn print_alias_cached(cx: &Ctx, name: &str, dest: &str, cur: &str) {
+    println!("{}", alias_line_with(cx, name, dest, false, None, cur));
 }
 fn walk_aliases(dir: &Path, prefix: &str, out: &mut Vec<String>) {
     for e in fs::read_dir(dir).into_iter().flatten().flatten() {
@@ -996,6 +992,7 @@ fn ensure_lts_alias_dir(cx: &Ctx) {
 
 fn list_aliases(cx: &Ctx, pat: Option<&str>) {
     ensure_lts_alias_dir(cx);
+    let cur = cx.st.ls_current(&env::var("PATH").unwrap_or_default());
     let mut names = vec![];
     walk_aliases(&cx.st.dir.join("alias"), "", &mut names);
     names.sort();
@@ -1008,7 +1005,7 @@ fn list_aliases(cx: &Ctx, pat: Option<&str>) {
         .collect();
     for n in &user {
         if let Some(t) = cx.st.read_alias(n) {
-            print_alias(cx, n, &t);
+            print_alias_cached(cx, n, &t, &cur);
         }
     }
     let has = |n: &str| user.iter().any(|u| u == n);
@@ -1060,7 +1057,9 @@ fn list_aliases(cx: &Ctx, pat: Option<&str>) {
                     colors::paint(&cx.pal, 4, "N/A")
                 ));
             }
-            Some(d) => lines.borrow_mut().push(alias_line(cx, name, &d, true)),
+            Some(d) => lines
+                .borrow_mut()
+                .push(alias_line_with(cx, name, &d, true, None, &cur)),
         }
     };
     implicit("iojs", iojs);
@@ -1076,7 +1075,7 @@ fn list_aliases(cx: &Ctx, pat: Option<&str>) {
     }
     for n in &lts {
         if let Some(t) = cx.st.read_alias(n) {
-            print_alias(cx, n, &t);
+            print_alias_cached(cx, n, &t, &cur);
         }
     }
 }
@@ -1090,6 +1089,7 @@ fn cmd_ls(cx: &mut Ctx, rest: &[String]) -> i32 {
         }
     }
     let no_alias = rest.iter().any(|a| a == "--no-alias");
+    cx.st.enable_listing_cache();
     let pat = rest.iter().find(|a| !a.starts_with("--") && !a.is_empty());
     let cur = cx.st.ls_current(&env::var("PATH").unwrap_or_default());
     if pat.is_some_and(|p| p == "current") && cur == "none" {

@@ -85,6 +85,23 @@ nvm use
 
 If you prefer the project name as a command, add `alias nvmr='nvm'` after the integration loads. Run `nvm --help` or read the [command reference](src/help.txt) for the complete command list.
 
+### Switch when changing directories
+
+After sourcing `nvm.sh`, add a hook to your shell profile to select the nearest `.nvmrc` or return to your default version. For zsh:
+
+```zsh
+autoload -U add-zsh-hook
+add-zsh-hook chpwd nvm_auto_cd
+```
+
+For bash:
+
+```bash
+cd() { builtin cd "$@" && nvm_auto_cd; }
+```
+
+The hook handles common no-change directory moves in the shell and calls nvmr when it needs to resolve or switch a version.
+
 ### Startup options
 
 Set these before sourcing `nvm.sh`:

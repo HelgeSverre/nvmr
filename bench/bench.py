@@ -13,6 +13,7 @@ and a Markdown report. See AGENTS.md ("Benchmarking and profiling") for the rule
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import os
 import platform
@@ -198,8 +199,13 @@ load-nvmrc
 '''
 # nvmr's own hook (what nvm.fish uses): one process per cd, no recipe logic in the shell.
 NATIVE_CD = {
-    "bash": 'cd() { builtin cd "$@" && nvm __auto cd >/dev/null; }\n',
-    "zsh": 'autoload -U add-zsh-hook\n__nvm_cd() { nvm __auto cd >/dev/null; }\nadd-zsh-hook chpwd __nvm_cd\n',
+    "bash": ('if type nvm_auto_cd >/dev/null 2>&1; then __nvm_cd() { nvm_auto_cd; }; '
+             'else __nvm_cd() { nvm __auto cd >/dev/null; }; fi\n'
+             'cd() { builtin cd "$@" && __nvm_cd; }\n'),
+    "zsh": ('autoload -U add-zsh-hook\n'
+            'if type nvm_auto_cd >/dev/null 2>&1; then __nvm_cd() { nvm_auto_cd; }; '
+            'else __nvm_cd() { nvm __auto cd >/dev/null; }; fi\n'
+            'add-zsh-hook chpwd __nvm_cd\n'),
 }
 
 # config name -> (state dir, init snippet builder)
@@ -317,6 +323,11 @@ def matrix(root: Path, p: dict[str, str], quick: bool, mirror: str) -> list[Benc
                              shell_cmd(s, mcfg, root, loop(ln, f"{ls} >/dev/null")),
                              ops=ln, baseline=f"startup/{s}/{mcfg}",
                              check="v18.100.0", check_cmd=shell_cmd(s, mcfg, root, ls)))
+            if tool == "nvmr":
+                out.append(Bench(f"ls-many-noalias/{s}/{tool}", "ls-many-noalias", tool,
+                                 shell_cmd(s, mcfg, root, loop(ln, "nvm ls --no-alias >/dev/null")),
+                                 ops=ln, baseline=f"startup/{s}/{mcfg}",
+                                 check="v18.100.0", check_cmd=shell_cmd(s, mcfg, root, "nvm ls --no-alias")))
             if tool != "fnm":  # resolution only; fnm has no `version`
                 n = it["version"] * scale
                 out.append(Bench(f"version/{s}/{tool}", "version", tool,
@@ -415,10 +426,16 @@ def environment(root: Path, a: argparse.Namespace) -> dict:
     for f in ("/sys/fs/cgroup/cpu.max", "/sys/fs/cgroup/cpuset.cpus.effective", "/sys/fs/cgroup/memory.max"):
         if Path(f).exists():
             cg[f] = Path(f).read_text().strip()
+    def sha256(path: Path) -> str:
+        return hashlib.sha256(path.read_bytes()).hexdigest()
+
     return {
         "started": time.strftime("%Y-%m-%dT%H:%M:%S%z"),
         "where": os.environ.get("BENCH_WHERE", "host"),
         "git": os.environ.get("BENCH_GIT", capture(["git", "-C", str(HERE.parent), "describe", "--always", "--dirty"])),
+        "sha256": {name: sha256(path) for name, path in {
+            "bench.py": HERE / "bench.py", "nvmr": root / "nvmr/nvmr", "nvm.sh": root / "nvmr/nvm.sh"
+        }.items()},
         "pins": p,
         "seed": a.seed, "rounds": a.rounds, "quick": a.quick, "publish": a.publish, "filter": a.filter,
         "platform": platform.platform(), "uname": capture(["uname", "-a"]), "cpu": cpu_model(),
@@ -645,6 +662,7 @@ def report(out: Path) -> None:
           "hook; `fnm` is `fnm env --use-on-cd`.")
     for g, title in (("use", "`use` (switch between two installed versions)"), ("current", "`current`"),
                      ("version", "`version <major>` (resolution)"), ("ls-many", "`ls` with 102 versions installed"),
+                     ("ls-many-noalias", "`ls --no-alias` with 102 versions installed"),
                      ("cd-switch", "`cd` into/out of a project with `.nvmrc` (switches each time)"),
                      ("cd-nochange", "`cd` between directories without a version file"),
                      ("install", "install from a loopback mirror (download + verify + extract)")):

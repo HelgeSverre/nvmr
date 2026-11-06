@@ -16,6 +16,7 @@ step "colour (pty)";  out="$(/src/scripts/colour-cmp.sh 2>&1)"; echo "$out" | ta
 step "colour ls-remote (pty)"; out="$(DIFFMAX=40 /src/scripts/colour-cmp-remote.sh 2>&1)"; echo "$out" | tail -8; echo "$out" | grep -q 'REMOTE-COLOUR-DONE' && ! echo "$out" | grep -q '^[-+][^-+]' || fail=1
 step "bash+zsh";      out="$(/src/scripts/shell-test.sh 2>&1)"; echo "$out" | grep -E '^(#####|IDENTICAL|[<>])'; [ "$(echo "$out" | grep -c '^IDENTICAL')" = 3 ] || fail=1
 step "POSIX lazy IFS"; chk bash /src/scripts/posix-extra-test.sh
+step "native cd hook"; chk bash /src/scripts/auto-cd-test.sh
 step "fish";          out="$(/src/scripts/fish-test.sh 2>&1)"; echo "$out"; echo "$out" | grep -q 'unload: gone' && echo "$out" | grep -q 'cd a: v=v20.20.2' || fail=1
 step "read-only NVM_DIR"; out="$(/src/scripts/readonly-test.sh 2>&1)"; echo "$out"; echo "$out" | grep -q 'after use: /tmp/ro/versions/node/v20.11.0/bin/node bin=/tmp/ro/versions' || fail=1
 step "Ctrl-C";        out="$(/src/scripts/sigint-test.sh 2>&1)"; echo "$out"; for w in 'download interrupted rc=130' 'resume rc=0' 'first-download extract interrupted rc=130' 'first-download files dir present after interrupt: no' 'extract interrupted rc=130' 'files dir present after interrupt: no; version dir: no' 'nvm install rc=130' 'lock left behind: $'; do echo "$out" | grep -q "$w" || { echo "FAIL: missing '$w'"; fail=1; }; done

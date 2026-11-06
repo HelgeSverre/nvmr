@@ -73,6 +73,69 @@ nvm_find_nvmrc() {
   if [ -e "${__nvm_d}/.nvmrc" ]; then nvm_echo "${__nvm_d}/.nvmrc"; fi
   unset __nvm_d
 }
+# Directory-change hook. The common no-.nvmrc case can stay in the shell when
+# there is no default, or when an exact default version is already first on PATH.
+nvm_auto_cd() {
+  __nvm_cd_d=$PWD
+  while :; do
+    if [ -f "$__nvm_cd_d/.nvmrc" ]; then
+      unset __nvm_cd_d
+      nvm __auto cd >/dev/null
+      return $?
+    fi
+    [ "$__nvm_cd_d" = / ] && break
+    __nvm_cd_d=${__nvm_cd_d%/*}
+    [ -n "$__nvm_cd_d" ] || __nvm_cd_d=/
+  done
+  unset __nvm_cd_d
+  [ -f "$NVM_DIR/alias/default" ] || return 0
+  IFS= read -r __nvm_cd_v <"$NVM_DIR/alias/default" || __nvm_cd_v=
+  case $__nvm_cd_v in
+    v[0-9]*.[0-9]*.[0-9]*)
+      __nvm_cd_numbers=${__nvm_cd_v#v}
+      __nvm_cd_major=${__nvm_cd_numbers%%.*}
+      __nvm_cd_numbers=${__nvm_cd_numbers#*.}
+      __nvm_cd_minor=${__nvm_cd_numbers%%.*}
+      __nvm_cd_patch=${__nvm_cd_numbers#*.}
+      case "$__nvm_cd_major:$__nvm_cd_minor:$__nvm_cd_patch" in
+        *[!0-9:]*|:*|*::*|*:) ;;
+        *)
+          if [ "${NVM_BIN-}" = "$NVM_DIR/versions/node/$__nvm_cd_v/bin" ] &&
+             [ -f "$NVM_BIN/node" ]; then
+            case $PATH in "$NVM_BIN":*)
+              unset __nvm_cd_v __nvm_cd_numbers __nvm_cd_major __nvm_cd_minor __nvm_cd_patch
+              return 0 ;;
+            esac
+          fi ;;
+      esac ;;
+  esac
+  # A major-only default is also unambiguous when only one version of that
+  # major is installed across node and io.js. This is common for `default 22`.
+  __nvm_cd_major=${__nvm_cd_v#v}
+  case $__nvm_cd_major in
+    ''|*[!0-9]*) ;;
+    *)
+      if [ -n "${NVM_BIN-}" ] && [ -f "$NVM_BIN/node" ]; then
+        case $PATH in "${NVM_BIN-}":*)
+          __nvm_cd_only=
+          for __nvm_cd_candidate in "$NVM_DIR"/versions/node/v"$__nvm_cd_major".* "$NVM_DIR"/versions/io.js/v"$__nvm_cd_major".*; do
+            [ -d "$__nvm_cd_candidate" ] || continue
+            if [ "$__nvm_cd_candidate" != "${NVM_BIN%/bin}" ]; then
+              __nvm_cd_only=other
+              break
+            fi
+            __nvm_cd_only=current
+          done
+          if [ "$__nvm_cd_only" = current ]; then
+            unset __nvm_cd_v __nvm_cd_numbers __nvm_cd_major __nvm_cd_minor __nvm_cd_patch __nvm_cd_only __nvm_cd_candidate
+            return 0
+          fi ;;
+        esac
+      fi ;;
+  esac
+  unset __nvm_cd_v __nvm_cd_numbers __nvm_cd_major __nvm_cd_minor __nvm_cd_patch __nvm_cd_only __nvm_cd_candidate
+  nvm __auto cd >/dev/null
+}
 nvm_ls_current() { command "${NVMR_EXE:-$NVM_DIR/nvmr}" current; }
 nvm_version() { command "${NVMR_EXE:-$NVM_DIR/nvmr}" version "$@"; }
 nvm_ls() { command "${NVMR_EXE:-$NVM_DIR/nvmr}" __ls "$@"; }
