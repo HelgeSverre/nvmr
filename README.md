@@ -37,11 +37,11 @@ The `opt/nvmr` path follows Homebrew upgrades. If you use nvm already, keep its 
 
 ### Release bundle
 
-Install v0.1.2:
+Install v0.1.3:
 
 ```sh
-curl -fsSLO https://raw.githubusercontent.com/HelgeSverre/nvmr/v0.1.2/install.sh
-NVMR_URL=https://github.com/HelgeSverre/nvmr/releases/download/v0.1.2 sh install.sh
+curl -fsSLO https://raw.githubusercontent.com/HelgeSverre/nvmr/v0.1.3/install.sh
+NVMR_URL=https://github.com/HelgeSverre/nvmr/releases/download/v0.1.3 sh install.sh
 ```
 
 The installer uses `NVM_DIR` if set. Otherwise it chooses `$XDG_CONFIG_HOME/nvm` when `XDG_CONFIG_HOME` is set, or `~/.nvm`. It updates a detected shell profile; set `PROFILE=/dev/null` to skip that step.
