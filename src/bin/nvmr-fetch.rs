@@ -3,6 +3,9 @@
 //!   nvmr-fetch get <url>                              body -> stdout; rc 4 on failure, 5 on 404
 //!   nvmr-fetch install <mirror> <vX.Y.Z> <nvm_dir> [--dest=<dir>] [--source] [--offline] [--no-progress]
 //!                                                    download + verify + extract; with --dest, move into place
+#[path = "../sigpipe.rs"]
+mod sigpipe;
+
 use sha2::{Digest, Sha256};
 use std::fs::{self, File};
 use std::io::{Read, Write};
@@ -380,6 +383,7 @@ fn install(opts: &Install) -> i32 {
 }
 
 fn main() {
+    sigpipe::restore_default();
     let args: Vec<String> = std::env::args().skip(1).collect();
     let rc = match args.as_slice() {
         [cmd, url] if cmd == "get" => match http_get(url) {

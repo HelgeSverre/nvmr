@@ -4,6 +4,7 @@ mod install;
 mod npm;
 mod pathedit;
 mod remote;
+mod sigpipe;
 mod store;
 
 use std::io::Write;
@@ -24,6 +25,7 @@ struct Ctx {
 }
 
 fn main() {
+    sigpipe::restore_default();
     let start = Instant::now();
     let args: Vec<String> = env::args().skip(1).collect();
     let nvm_dir = env::var("NVM_DIR").map_or_else(
