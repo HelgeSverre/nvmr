@@ -135,8 +135,16 @@ pub fn index(st: &Store) -> Result<Vec<Row>, i32> {
             latest_of_line: latest,
         });
     }
-    rows.sort_by_key(|r| key(&r.ver));
+    sort_unique(&mut rows);
     Ok(rows)
+}
+
+/// Upstream pipes node rows through `sort -t. -u -k 1.2,1n -k 2,2n -k 3,3n`: rows with the
+/// same major.minor.patch (such as several `v27.0.0-alpha.*` builds) count as duplicates and
+/// only the first in index order survives. A stable sort followed by `dedup` keeps that row.
+fn sort_unique(rows: &mut Vec<Row>) {
+    rows.sort_by_key(|r| key(&r.ver));
+    rows.dedup_by_key(|r| key(&r.ver));
 }
 
 /// `lts/-N` -> codename; Err(msg, rc).
@@ -248,4 +256,31 @@ pub fn format_row(
         }
     }
     s
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn row(ver: &str) -> Row {
+        Row {
+            ver: ver.into(),
+            lts: None,
+            latest_of_line: false,
+        }
+    }
+
+    #[test]
+    fn sort_unique_keeps_first_row_per_version_core() {
+        let mut rows = vec![
+            row("v27.0.0-alpha.0.2.0"),
+            row("v27.0.0-alpha.0.1.1"),
+            row("v26.13.1"),
+            row("v27.0.0-alpha.0.0.0"),
+            row("v26.1.0"),
+        ];
+        sort_unique(&mut rows);
+        let vers: Vec<&str> = rows.iter().map(|r| r.ver.as_str()).collect();
+        assert_eq!(vers, ["v26.1.0", "v26.13.1", "v27.0.0-alpha.0.2.0"]);
+    }
 }
