@@ -58,7 +58,9 @@ __nvm_aliases() {
   declare aliases
   aliases=""
   if [ -d "${NVM_DIR}/alias" ]; then
-    aliases="$(command cd "${NVM_DIR}/alias" && command find "${PWD}" -type f | command sed "s:${PWD}/::")"
+    # No `cd`: in zsh, `command cd` runs the external /usr/bin/cd and `find` would walk the
+    # current directory instead; with POSIX_BUILTINS it would fire chpwd hooks on every Tab.
+    aliases="$(command find "${NVM_DIR}/alias" -type f | command sed "s:^${NVM_DIR}/alias/::")"
   fi
   echo "${aliases} node stable unstable iojs"
 }

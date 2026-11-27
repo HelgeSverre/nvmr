@@ -20,6 +20,7 @@ step "native cd hook"; chk bash /src/scripts/auto-cd-test.sh
 step "fish";          out="$(/src/scripts/fish-test.sh 2>&1)"; echo "$out"; echo "$out" | grep -q 'unload: gone' && echo "$out" | grep -q 'cd a: v=v20.20.2' || fail=1
 step "read-only NVM_DIR"; out="$(/src/scripts/readonly-test.sh 2>&1)"; echo "$out"; echo "$out" | grep -q 'after use: /tmp/ro/versions/node/v20.11.0/bin/node bin=/tmp/ro/versions' || fail=1
 step "Ctrl-C";        out="$(/src/scripts/sigint-test.sh 2>&1)"; echo "$out"; for w in 'download interrupted rc=130' 'resume rc=0' 'first-download extract interrupted rc=130' 'first-download files dir present after interrupt: no' 'extract interrupted rc=130' 'files dir present after interrupt: no; version dir: no' 'nvm install rc=130' 'lock left behind: $'; do echo "$out" | grep -q "$w" || { echo "FAIL: missing '$w'"; fail=1; }; done
+step "completion";    out="$(/src/scripts/completion-test.sh 2>&1)"; echo "$out"; echo "$out" | grep -q 'COMPLETION-OK' || fail=1
 step "closed pipe";   out="$(/src/scripts/sigpipe-test.sh 2>&1)"; echo "$out"; echo "$out" | grep -q 'closed pipe: quiet' || fail=1
 step "portability";   /src/scripts/portability.sh 2>&1 | tee /tmp/port.txt; grep -qE 'error|not found' /tmp/port.txt && fail=1
 echo; [ $fail = 0 ] && echo "ALL GREEN" || echo "FAILURES PRESENT"
